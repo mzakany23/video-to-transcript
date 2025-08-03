@@ -1,0 +1,74 @@
+data
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables
+.env
+.env.local
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Google API credentials
+credentials.json
+token.json
+service-account.json
+
+# Transient artifacts
+conversation/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build artifacts (Docker, zips)
+*.zip
+function.zip
+webhook-function.zip
+
+# Docker build context
+.dockerignore
+
+# Google Drive webhook info (contains sensitive IDs)
+drive_webhook_info.json
+
+# Test files
+test_*.py
