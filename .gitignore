@@ -38,6 +38,7 @@ service-account.json
 
 # Transient artifacts
 conversation/
+NOTES.md
 
 # Terraform
 terraform/.terraform/
