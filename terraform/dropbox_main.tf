@@ -31,10 +31,10 @@ resource "google_project_service" "required_apis" {
     "secretmanager.googleapis.com",
     "cloudbuild.googleapis.com"
   ])
-  
+
   project = var.project_id
   service = each.value
-  
+
   disable_dependent_services = false
 }
 
@@ -42,11 +42,11 @@ resource "google_project_service" "required_apis" {
 resource "google_secret_manager_secret" "dropbox_token" {
   project   = var.project_id
   secret_id = "dropbox-access-token"
-  
+
   replication {
     auto {}
   }
-  
+
   depends_on = [google_project_service.required_apis]
 }
 
@@ -58,11 +58,11 @@ resource "google_secret_manager_secret_version" "dropbox_token" {
 resource "google_secret_manager_secret" "dropbox_secret" {
   project   = var.project_id
   secret_id = "dropbox-app-secret"
-  
+
   replication {
     auto {}
   }
-  
+
   depends_on = [google_project_service.required_apis]
 }
 
@@ -75,11 +75,11 @@ resource "google_secret_manager_secret_version" "dropbox_secret" {
 resource "google_secret_manager_secret" "openai_key" {
   project   = var.project_id
   secret_id = "openai-api-key"
-  
+
   replication {
     auto {}
   }
-  
+
   depends_on = [google_project_service.required_apis]
 }
 
@@ -109,24 +109,24 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
   project  = var.project_id
   name     = "transcription-worker"
   location = var.region
-  
+
   template {
     template {
       service_account = google_service_account.transcription_service.email
-      
+
       containers {
         image = "gcr.io/${var.project_id}/transcription-worker:latest"
-        
+
         env {
           name = "PROJECT_ID"
           value = var.project_id
         }
-        
+
         env {
           name = "SECRET_NAME"
           value = "openai-api-key"
         }
-        
+
         env {
           name = "DROPBOX_ACCESS_TOKEN"
           value_source {
@@ -136,7 +136,7 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
             }
           }
         }
-        
+
         resources {
           limits = {
             cpu    = "2"
@@ -144,11 +144,11 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
           }
         }
       }
-      
+
       timeout = "3600s"  # 1 hour timeout
     }
   }
-  
+
   depends_on = [google_project_service.required_apis]
 }
 
@@ -157,32 +157,32 @@ resource "google_cloud_run_v2_service" "webhook_handler" {
   project  = var.project_id
   name     = "transcription-webhook"
   location = var.region
-  
+
   template {
     service_account = google_service_account.transcription_service.email
-    
+
     containers {
       image = "gcr.io/${var.project_id}/transcription-webhook:latest"
-      
+
       ports {
         container_port = 8080
       }
-      
+
       env {
         name = "PROJECT_ID"
         value = var.project_id
       }
-      
+
       env {
         name = "GCP_REGION"
         value = var.region
       }
-      
+
       env {
         name = "WORKER_JOB_NAME"
         value = google_cloud_run_v2_job.transcription_processor.name
       }
-      
+
       env {
         name = "DROPBOX_ACCESS_TOKEN"
         value_source {
@@ -192,7 +192,7 @@ resource "google_cloud_run_v2_service" "webhook_handler" {
           }
         }
       }
-      
+
       env {
         name = "DROPBOX_APP_SECRET"
         value_source {
@@ -202,7 +202,7 @@ resource "google_cloud_run_v2_service" "webhook_handler" {
           }
         }
       }
-      
+
       resources {
         limits = {
           cpu    = "1"
@@ -211,7 +211,7 @@ resource "google_cloud_run_v2_service" "webhook_handler" {
       }
     }
   }
-  
+
   depends_on = [google_project_service.required_apis]
 }
 
