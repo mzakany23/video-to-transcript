@@ -3,7 +3,7 @@
 variable "project_id" {
   description = "The GCP project ID"
   type        = string
-  default     = ""  # Set this to your GCP project ID
+  default     = ""  # Set this in your .tfvars file
 }
 
 variable "region" {
@@ -33,11 +33,11 @@ variable "monitored_folder_id" {
 variable "raw_folder_id" {
   description = "Google Drive folder ID to monitor for new files (raw folder)"
   type        = string
-  default     = ""  # Set this to your Google Drive raw folder ID
+  default     = ""  # Set this in your .tfvars file
 }
 
 variable "processed_folder_id" {
   description = "Google Drive folder ID where processed transcripts are saved"
   type        = string
-  default     = ""  # Set this to your Google Drive processed folder ID
+  default     = ""  # Set this in your .tfvars file
 }
