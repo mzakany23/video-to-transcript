@@ -29,7 +29,9 @@ resource "google_project_service" "required_apis" {
   for_each = toset([
     "run.googleapis.com",
     "secretmanager.googleapis.com",
-    "cloudbuild.googleapis.com"
+    "cloudbuild.googleapis.com",
+    "cloudfunctions.googleapis.com",
+    "storage.googleapis.com"
   ])
 
   project = var.project_id
@@ -152,82 +154,90 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
   depends_on = [google_project_service.required_apis]
 }
 
-# Cloud Run Service for webhook handler
-resource "google_cloud_run_v2_service" "webhook_handler" {
+# Create zip file for Cloud Function source
+data "archive_file" "webhook_source" {
+  type        = "zip"
+  source_dir  = "../webhook"
+  output_path = "webhook-source.zip"
+}
+
+# Storage bucket for Cloud Function source
+resource "google_storage_bucket" "webhook_source" {
+  name     = "${var.project_id}-webhook-source"
+  location = var.region
   project  = var.project_id
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# Upload source to bucket
+resource "google_storage_bucket_object" "webhook_source" {
+  name   = "webhook-source.zip"
+  bucket = google_storage_bucket.webhook_source.name
+  source = data.archive_file.webhook_source.output_path
+}
+
+# Cloud Function for webhook handler (scales to zero = no cost when not used!)
+resource "google_cloudfunctions2_function" "webhook_handler" {
   name     = "transcription-webhook"
   location = var.region
+  project  = var.project_id
 
-  template {
-    service_account = google_service_account.transcription_service.email
-
-    containers {
-      image = "gcr.io/${var.project_id}/transcription-webhook:latest"
-
-      ports {
-        container_port = 8080
+  build_config {
+    runtime     = "python311"
+    entry_point = "webhook_handler"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.webhook_source.name
+        object = google_storage_bucket_object.webhook_source.name
       }
+    }
+  }
 
-      env {
-        name = "PROJECT_ID"
-        value = var.project_id
-      }
+  service_config {
+    max_instance_count = 10
+    min_instance_count = 0  # Scale to zero = $0 when not used!
+    available_memory   = "256Mi"
+    timeout_seconds    = 60
+    service_account_email = google_service_account.transcription_service.email
 
-      env {
-        name = "GCP_REGION"
-        value = var.region
-      }
+    environment_variables = {
+      PROJECT_ID      = var.project_id
+      GCP_REGION      = var.region
+      WORKER_JOB_NAME = google_cloud_run_v2_job.transcription_processor.name
+    }
 
-      env {
-        name = "WORKER_JOB_NAME"
-        value = google_cloud_run_v2_job.transcription_processor.name
-      }
+    secret_environment_variables {
+      key        = "DROPBOX_ACCESS_TOKEN"
+      project_id = var.project_id
+      secret     = google_secret_manager_secret.dropbox_token.secret_id
+      version    = "latest"
+    }
 
-      env {
-        name = "DROPBOX_ACCESS_TOKEN"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.dropbox_token.secret_id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name = "DROPBOX_APP_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.dropbox_secret.secret_id
-            version = "latest"
-          }
-        }
-      }
-
-      resources {
-        limits = {
-          cpu    = "1"
-          memory = "1Gi"
-        }
-      }
+    secret_environment_variables {
+      key        = "DROPBOX_APP_SECRET"
+      project_id = var.project_id
+      secret     = google_secret_manager_secret.dropbox_secret.secret_id
+      version    = "latest"
     }
   }
 
   depends_on = [google_project_service.required_apis]
 }
 
-# Allow public access to webhook handler
-resource "google_cloud_run_service_iam_member" "webhook_public_access" {
-  project  = var.project_id
-  location = var.region
-  service  = google_cloud_run_v2_service.webhook_handler.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
+# Allow public access to webhook (for Dropbox to call it)
+resource "google_cloudfunctions2_function_iam_member" "webhook_public_access" {
+  project        = var.project_id
+  location       = google_cloudfunctions2_function.webhook_handler.location
+  cloud_function = google_cloudfunctions2_function.webhook_handler.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "allUsers"
 }
 
 # Outputs
 output "webhook_url" {
   description = "URL for Dropbox webhook configuration"
-  value       = "${google_cloud_run_v2_service.webhook_handler.uri}/webhook"
+  value       = google_cloudfunctions2_function.webhook_handler.service_config[0].uri
 }
 
 output "worker_job_name" {

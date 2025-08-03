@@ -5,14 +5,14 @@ Receives webhook notifications and triggers transcription jobs
 
 import json
 import os
+import hmac
+import hashlib
 from typing import Dict, Any
 from datetime import datetime
 
 import functions_framework
-from google.cloud import pubsub_v1
 from google.cloud import run_v2
 from flask import Request
-
 
 @functions_framework.http
 def webhook_handler(request: Request):
@@ -23,14 +23,41 @@ def webhook_handler(request: Request):
     Args:
         request: HTTP request from Dropbox webhook notifications
     """
-    # SECURITY: Immediate basic validation (cheapest operations first)
+    # Handle Dropbox webhook verification (GET request with challenge parameter)
+    if request.method == 'GET':
+        challenge = request.args.get('challenge')
+        if challenge:
+            print(f"✅ Dropbox webhook verification - returning challenge: {challenge}")
+            return challenge, 200
+        else:
+            print("⚠️ GET request without challenge parameter")
+            return 'Bad Request', 400
+    
+    # Handle actual webhook notifications (POST requests)
     if request.method != 'POST':
         return 'Method not allowed', 405
     
-    # Verify Dropbox signature (basic security)
+    # SECURITY: Verify Dropbox signature (the RIGHT way)
     dropbox_signature = request.headers.get('X-Dropbox-Signature')
     if not dropbox_signature:
         print("⚠️ Missing Dropbox signature - rejecting request")
+        return 'Unauthorized', 401
+    
+    # Verify the signature using Dropbox app secret
+    app_secret = os.environ.get('DROPBOX_APP_SECRET')
+    if not app_secret:
+        print("❌ Missing DROPBOX_APP_SECRET environment variable")
+        return 'Server Error', 500
+    
+    request_body = request.get_data()
+    expected_signature = hmac.new(
+        app_secret.encode('utf-8'),
+        request_body,
+        hashlib.sha256
+    ).hexdigest()
+    
+    if not hmac.compare_digest(dropbox_signature, expected_signature):
+        print("⚠️ Invalid Dropbox signature - rejecting request")
         return 'Unauthorized', 401
     
     try:
@@ -128,5 +155,5 @@ class WebhookProcessor:
 
 
 if __name__ == "__main__":
-    # For local testing
+    # For local testing with functions-framework
     pass

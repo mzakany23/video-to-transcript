@@ -17,8 +17,8 @@ class Config:
     DROPBOX_APP_KEY: str = os.environ.get("DROPBOX_APP_KEY", "ry0wtf3rwnxda14")
     
     # Dropbox Folder Structure (scoped to 'jos-transcripts')
-    RAW_FOLDER: str = "/raw"
-    PROCESSED_FOLDER: str = "/processed"
+    RAW_FOLDER: str = "/jos-transcripts/raw"
+    PROCESSED_FOLDER: str = "/jos-transcripts/processed"
     
     # OpenAI Configuration
     OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
