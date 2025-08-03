@@ -1,6 +1,6 @@
 """
-Google Drive Webhook Handler
-Receives push notifications from Google Drive and publishes messages to Pub/Sub
+Webhook Handler
+Receives webhook notifications and triggers transcription jobs
 """
 
 import json
@@ -15,7 +15,7 @@ from flask import Request
 
 
 @functions_framework.http
-def drive_webhook_handler(request: Request):
+def webhook_handler(request: Request):
     """
     HTTP Cloud Function to handle Google Drive push notifications
     SECURITY: Early validation and rejection to prevent billing spikes
@@ -54,7 +54,7 @@ def drive_webhook_handler(request: Request):
         
         # SECURITY: Lightweight processing - trigger Cloud Run Job for heavy work
         try:
-            processor = DriveWebhookProcessor()
+            processor = WebhookProcessor()
             result = processor.trigger_transcription_job(channel_id, resource_id, resource_state)
             
             if result.get('success'):
@@ -73,7 +73,7 @@ def drive_webhook_handler(request: Request):
         return 'Error', 500
 
 
-class DriveWebhookProcessor:
+class WebhookProcessor:
     """Lightweight webhook processor - triggers Cloud Run Jobs for heavy processing"""
     
     def __init__(self):

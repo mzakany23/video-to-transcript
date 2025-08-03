@@ -1,0 +1,14 @@
+[project]
+name = "transcripts-webhook"
+version = "0.1.0"
+description = "Webhook service for transcription pipeline"
+dependencies = [
+    "functions-framework>=3.0.0",
+    "google-cloud-run>=0.10.0",
+    "flask>=2.0.0",
+]
+requires-python = ">=3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

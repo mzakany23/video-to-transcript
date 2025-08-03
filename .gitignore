@@ -68,8 +68,8 @@ webhook-function.zip
 # Docker build context
 .dockerignore
 
-# Google Drive webhook info (contains sensitive IDs)
-drive_webhook_info.json
+# Webhook info (contains sensitive IDs)
+webhook_info.json
 
 # Test files
 test_*.py

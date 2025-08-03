@@ -1,77 +1,73 @@
-# Transcripts with OpenAI Whisper API
+# Transcripts
 
-Transcribe audio and video files using the OpenAI Whisper API with Google Drive integration.
+Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload files to Dropbox, get transcripts automatically.
 
-## Phase 1: Local Google Drive Integration ✅
+## Features
+- **Webhook-based Processing**: Automatic transcription when files are uploaded
+- **Large File Support**: Handles files >25MB with automatic compression  
+- **Multiple Formats**: Audio (mp3, wav, m4a) and video (mp4, mov, avi, webm)
+- **Serverless Architecture**: Scales automatically with Google Cloud Run
+- **Structured Output**: Both JSON (with timestamps) and plain text formats
 
-### Features
-- **Google Drive Integration**: Automatically monitors shared Google Drive folder
-- **Large File Support**: Automatic compression for files >25MB using ffmpeg
-- **Job Tracking**: Prevents reprocessing of already transcribed files
-- **Multiple Formats**: Supports mp3, mp4, wav, mov, avi, webm, and more
-- **Cloud Storage**: Results automatically uploaded to Google Drive
+## Quick Start
 
-### Setup
-
-1. **Install dependencies**:
+1. **Deploy infrastructure**:
    ```bash
-   uv sync
+   cd terraform/
+   terraform init
+   terraform apply
    ```
 
-2. **Set up Google Drive API credentials**:
-   ```bash
-   uv run python setup_google_credentials.py
-   ```
-   Follow the instructions to download `credentials.json` from Google Cloud Console.
-
-3. **Set your OpenAI API key**:
+2. **Configure environment** (set in Cloud Run):
    ```bash
    export OPENAI_API_KEY="your_api_key_here"
+   export DROPBOX_APP_KEY="your_app_key" 
+   export DROPBOX_APP_SECRET="your_app_secret"
    ```
 
-### Usage
+3. **Upload files to Dropbox** → Transcripts appear automatically!
 
-#### Google Drive Transcription (Recommended)
+## Development
+
+Each service is independently managed:
+
 ```bash
-# Process all new files in Google Drive
-uv run python transcribe_drive.py
+# Webhook service
+cd webhook/
+uv sync
+uv run main.py
 
-# Show current status
-uv run python transcribe_drive.py --status
+# Worker service  
+cd worker/
+uv sync
+uv run main.py
 
-# Process specific number of files
-uv run python transcribe_drive.py --max-files 5
-
-# Specify language
-uv run python transcribe_drive.py --language en
-```
-
-#### Local Transcription (Legacy)
-```bash
-# Process files in data/raw/
-uv run python transcribe.py
-
-# Process specific file
-uv run python transcribe.py --file path/to/audio.mp3
-```
-
-## Google Drive Folder Structure
-
-The system automatically creates this structure in your Google Drive:
-
-```
-📁 Transcription Pipeline/
-├── 📁 raw/           # 👥 Team drops files here
-└── 📁 processed/     # 🤖 Transcripts appear here automatically
+# CLI tools
+cd cli/
+uv sync
+uv run backfill.py
 ```
 
 ## How It Works
 
-1. **📤 Upload**: Team members drag audio/video files to the `raw/` folder
-2. **🔍 Detection**: System monitors for new files automatically
-3. **⚡ Processing**: Large files are compressed, then transcribed with Whisper
-4. **📥 Results**: JSON (with timestamps) and TXT files appear in `processed/`
-5. **✅ Tracking**: Prevents duplicate processing of the same files
+1. **📤 Upload**: Drop audio/video files into Dropbox folder
+2. **🔔 Webhook**: Dropbox notifies our webhook service instantly  
+3. **⚡ Processing**: Cloud Run worker downloads, compresses if needed, and transcribes
+4. **📥 Results**: JSON (with timestamps) and TXT files uploaded back to Dropbox
+5. **✅ Done**: Transcripts appear in processed folder automatically
+
+## Architecture
+
+```
+📁 Dropbox/
+├── 📁 raw/           # 👥 Upload files here
+└── 📁 processed/     # 🤖 Transcripts appear here
+```
+
+**Services:**
+- **Webhook Service**: Receives Dropbox notifications → triggers jobs
+- **Worker Service**: Downloads files → transcribes → uploads results  
+- **Shared Library**: Common code used by both services
 
 ## Output Files
 
@@ -84,39 +80,32 @@ For each input file `meeting.mp4`, you get:
 - **Audio**: `.mp3`, `.wav`, `.m4a`, `.aac`, `.ogg`, `.flac`, `.mpga`, `.oga`
 - **Video**: `.mp4`, `.mov`, `.avi`, `.webm`, `.mpeg`
 
-## Development
+## Project Structure
 
-### Run Tests
-```bash
-uv run pytest tests/ -v
-```
+**Monorepo** - Each service is independently deployable:
 
-### Project Structure
 ```
 transcripts/
-├── transcribe_drive.py          # 🚀 Main Google Drive integration
-├── google_drive_handler.py      # 🔧 Google Drive API wrapper
-├── setup_google_credentials.py  # ⚙️  Credential setup helper
-├── transcribe.py                # 📁 Legacy local file processing
-├── tests/                       # 🧪 Test suite
-├── conversation/                # 🗂️  Temp files (gitignored)
-└── data/                        # 📂 Local data (if needed)
-    ├── raw/
-    └── processed/
-```
+├── webhook/                     # 🔔 Webhook service
+│   ├── pyproject.toml          # Lightweight dependencies
+│   └── main.py                 # Receives notifications
+├── worker/                      # ⚙️  Worker service  
+│   ├── pyproject.toml          # Full transcription dependencies
+│   ├── src/transcripts/        # Core transcription logic
+│   ├── main.py                 # Processes files
+│   └── Dockerfile              # Container image
+├── cli/                         # 🛠️  CLI tools
+│   ├── pyproject.toml          # CLI dependencies
+│   └── backfill.py             # Process existing files
+├── templates/                   # 📄 Shared output templates
+├── terraform/                   # 🏗️  Infrastructure as Code
+└── tests/                       # 🧪 Integration tests
 
 ## Troubleshooting
-
-### "credentials.json not found"
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create/select project → Enable Google Drive API
-3. Credentials → Create OAuth client ID (Desktop application)
-4. Download and save as `credentials.json` in project root
 
 ### "OpenAI API key not found"
 ```bash
 export OPENAI_API_KEY="your_key_here"
-# Or add to .env file
 ```
 
 ### "ffmpeg not found"
@@ -124,17 +113,6 @@ export OPENAI_API_KEY="your_key_here"
 # macOS
 brew install ffmpeg
 
-# Ubuntu/Debian
+# Ubuntu/Debian  
 sudo apt install ffmpeg
 ```
-
-## Next Phases
-
-- **Phase 2**: Cloud Infrastructure (Terraform + GCP)
-- **Phase 3**: Serverless Event Processing
-- **Phase 4**: CI/CD Pipeline (GitHub Actions)
-- **Phase 5**: Production Monitoring
-
----
-
-✨ **Ready for production!** The system now handles shared Google Drive folders with automatic processing and team collaboration.

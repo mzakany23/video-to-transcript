@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY main.py .
+COPY ../dropbox_handler.py .
 
 # Run the application
 CMD ["python", "main.py"]
