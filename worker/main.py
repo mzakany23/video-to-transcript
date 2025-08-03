@@ -17,9 +17,9 @@ from google.cloud import secretmanager
 from openai import OpenAI
 import ffmpeg
 
-# Import Dropbox handler
-sys.path.append('..')
-from dropbox_handler import DropboxHandler
+# Import Dropbox handler from our src package
+sys.path.append('src')
+from transcripts.core.dropbox_handler import DropboxHandler
 
 
 def main():
@@ -33,17 +33,17 @@ def main():
     webhook_trigger = os.environ.get('WEBHOOK_TRIGGER', 'false').lower() == 'true'
     
     if webhook_trigger:
-        print("📧 Triggered by Drive webhook - processing new files")
-        processor.process_new_drive_files()
+        print("📧 Triggered by Dropbox webhook - processing new files")
+        processor.process_webhook_trigger()
     else:
         print("⏰ Scheduled/manual run - processing all pending files")
-        processor.process_pending_drive_files()
+        processor.process_pending_files()
     
     print("✅ Transcription job completed")
 
 
 class TranscriptionJobProcessor:
-    """Handles batch transcription processing for Cloud Run Jobs using Dropbox"""
+    """Handles transcription processing for Cloud Run Jobs using Dropbox"""
     
     def __init__(self):
         """Initialize with environment variables and clients"""
@@ -68,65 +68,34 @@ class TranscriptionJobProcessor:
         print(f"📁 Raw folder: {folder_info['raw_folder']}")
         print(f"📁 Processed folder: {folder_info['processed_folder']}")
     
-    def process_specific_file(self):
-        """Process a specific file specified by webhook (triggered by Dropbox webhook)"""
-        file_path = os.environ.get('DROPBOX_FILE_PATH')
-        file_name = os.environ.get('DROPBOX_FILE_NAME')
-        file_id = os.environ.get('DROPBOX_FILE_ID')
-        
-        if not all([file_path, file_name, file_id]):
-            print("⚠️ No specific file specified, falling back to batch processing")
-            return self.process_pending_drive_files()
-        
-        print(f"🎯 Processing specific file: {file_name}")
-        
-        try:
-            # Create file info dict
-            file_info = {
-                'id': file_id,
-                'name': file_name,
-                'path': file_path
-            }
-            
-            # Process the file
-            result = self.process_file(file_info)
-            
-            if result.get('success'):
-                print(f"✅ Successfully processed: {file_name}")
-            else:
-                print(f"❌ Failed to process: {file_name} - {result.get('error')}")
-            
-            return result
-            
-        except Exception as e:
-            print(f"❌ Error processing specific file: {str(e)}")
-            return {'success': False, 'error': str(e)}
-    
     def _get_secret(self, secret_name: str) -> str:
         """Retrieve secret from Google Secret Manager"""
         name = f"projects/{self.project_id}/secrets/{secret_name}/versions/latest"
         response = self.secret_client.access_secret_version(request={"name": name})
         return response.payload.data.decode("UTF-8")
     
-    def process_new_drive_files(self):
-        """Process new files in Dropbox (triggered by webhook)"""
-        print("📥 Processing new files from Dropbox...")
+    def process_webhook_trigger(self):
+        """Process files triggered by Dropbox webhook"""
+        print("📥 Processing webhook trigger from Dropbox...")
         
-        # Check if this is a specific file trigger
-        if os.environ.get('DROPBOX_FILE_PATH'):
-            return self.process_specific_file()
+        # Get webhook data from environment
+        webhook_data_str = os.environ.get('DROPBOX_WEBHOOK_DATA')
+        if webhook_data_str:
+            print("📊 Processing webhook data")
+            # For now, just process batch - webhook tells us something changed
+            # In future, could parse specific changed files
         
-        # Otherwise process batch
+        # Process recent files (webhook indicates changes)
         max_files = int(os.environ.get('MAX_FILES', '5'))  # Default 5 for webhook triggers
-        self._process_drive_files(max_files=max_files)
+        self._process_dropbox_files(max_files=max_files)
     
-    def process_pending_drive_files(self):
+    def process_pending_files(self):
         """Process all pending files in Dropbox (scheduled/manual run)"""  
         print("📥 Processing all pending files from Dropbox...")
         max_files = int(os.environ.get('MAX_FILES', '10'))  # Default 10 for scheduled runs
-        self._process_drive_files(max_files=max_files)
+        self._process_dropbox_files(max_files=max_files)
     
-    def _process_drive_files(self, max_files: int = 10):
+    def _process_dropbox_files(self, max_files: int = 10):
         """Core method to process files from Dropbox"""
         try:
             # Load job tracking
@@ -186,7 +155,7 @@ class TranscriptionJobProcessor:
             print(f"📊 Job completed: {processed_count}/{len(files_to_process)} files processed successfully")
             
         except Exception as e:
-            print(f"❌ Error in process_drive_files: {str(e)}")
+            print(f"❌ Error in _process_dropbox_files: {str(e)}")
             raise
     
     def _load_job_tracking(self) -> Dict[str, Any]:
@@ -225,7 +194,7 @@ class TranscriptionJobProcessor:
             temp_file_path = self._download_from_dropbox(file_path, file_name)
             
             if not temp_file_path:
-                return {'success': False, 'error': 'Failed to download file from Drive'}
+                return {'success': False, 'error': 'Failed to download file from Dropbox'}
             
             # Process audio based on file type
             audio_file_path = self._prepare_audio_file(temp_file_path, file_name)

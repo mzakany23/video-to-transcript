@@ -1,198 +1,241 @@
-# Google Cloud Platform Configuration for Transcription Service
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
-  }
+
+# Dropbox-based transcription pipeline infrastructure
+
+variable "project_id" {
+  description = "The GCP project ID"
+  type        = string
 }
 
-# Configure the Google Cloud Provider
-provider "google" {
-  project = var.project_id
-  region  = var.region
-  zone    = var.zone
+variable "region" {
+  description = "The GCP region"
+  type        = string
+  default     = "us-east1"
+}
+
+variable "dropbox_access_token" {
+  description = "Dropbox app access token"
+  type        = string
+  sensitive   = true
+}
+
+variable "dropbox_app_secret" {
+  description = "Dropbox app secret for webhook verification"
+  type        = string
+  sensitive   = true
 }
 
 # Enable required APIs
-resource "google_project_service" "drive_api" {
-  service = "drive.googleapis.com"
-}
+resource "google_project_service" "required_apis" {
+  for_each = toset([
+    "run.googleapis.com",
+    "secretmanager.googleapis.com",
+    "cloudbuild.googleapis.com"
+  ])
 
-resource "google_project_service" "iam_api" {
-  service = "iam.googleapis.com"
-}
-
-resource "google_project_service" "cloudfunctions_api" {
-  service = "cloudfunctions.googleapis.com"
-}
-
-resource "google_project_service" "cloudbuild_api" {
-  service = "cloudbuild.googleapis.com"
-}
-
-resource "google_project_service" "pubsub_api" {
-  service = "pubsub.googleapis.com"
-}
-
-resource "google_project_service" "storage_api" {
-  service = "storage-api.googleapis.com"
-}
-
-resource "google_project_service" "secretmanager_api" {
-  service = "secretmanager.googleapis.com"
-}
-
-resource "google_project_service" "eventarc_api" {
-  service = "eventarc.googleapis.com"
-}
-
-resource "google_project_service" "run_api" {
-  service = "run.googleapis.com"
-}
-
-resource "google_project_service" "container_registry_api" {
-  service = "containerregistry.googleapis.com"
-}
-
-# Create service account for transcription service
-resource "google_service_account" "transcription_service" {
-  account_id   = "transcription-service"
-  display_name = "Transcription Service Account"
-  description  = "Service account for automated audio/video transcription pipeline"
-}
-
-# Create and download service account key
-resource "google_service_account_key" "transcription_service_key" {
-  service_account_id = google_service_account.transcription_service.name
-  public_key_type    = "TYPE_X509_PEM_FILE"
-}
-
-# Save the private key to local file
-resource "local_file" "service_account_key" {
-  content  = base64decode(google_service_account_key.transcription_service_key.private_key)
-  filename = "../service-account.json"
-}
-
-# Grant necessary IAM roles to service account
-# Note: Google Drive permissions are managed through domain admin console or OAuth scopes
-# For service accounts, we only need basic project-level permissions
-resource "google_project_iam_member" "storage_admin" {
   project = var.project_id
-  role    = "roles/storage.admin"
-  member  = "serviceAccount:${google_service_account.transcription_service.email}"
+  service = each.value
+
+  disable_dependent_services = false
 }
 
-# Note: Pub/Sub and Cloud Functions IAM roles removed - using Cloud Run Jobs
+# Store Dropbox credentials in Secret Manager
+resource "google_secret_manager_secret" "dropbox_token" {
+  project   = var.project_id
+  secret_id = "dropbox-access-token"
 
-resource "google_project_iam_member" "secretmanager_accessor" {
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "dropbox_token" {
+  secret      = google_secret_manager_secret.dropbox_token.id
+  secret_data = var.dropbox_access_token
+}
+
+resource "google_secret_manager_secret" "dropbox_secret" {
+  project   = var.project_id
+  secret_id = "dropbox-app-secret"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "dropbox_secret" {
+  secret      = google_secret_manager_secret.dropbox_secret.id
+  secret_data = var.dropbox_app_secret
+}
+
+# Store OpenAI API key in Secret Manager
+resource "google_secret_manager_secret" "openai_key" {
+  project   = var.project_id
+  secret_id = "openai-api-key"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# Service account for Cloud Run jobs
+resource "google_service_account" "transcription_service" {
+  project      = var.project_id
+  account_id   = "transcription-dropbox-service"
+  display_name = "Transcription Service (Dropbox)"
+  description  = "Service account for Dropbox-based transcription pipeline"
+}
+
+# Grant necessary permissions
+resource "google_project_iam_member" "secret_accessor" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
   member  = "serviceAccount:${google_service_account.transcription_service.email}"
 }
 
-# Cloud Run Job permissions
 resource "google_project_iam_member" "run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
   member  = "serviceAccount:${google_service_account.transcription_service.email}"
 }
 
-resource "google_project_iam_member" "run_developer" {
-  project = var.project_id
-  role    = "roles/run.developer"
-  member  = "serviceAccount:${google_service_account.transcription_service.email}"
-}
+# Cloud Run Job for transcription processing
+resource "google_cloud_run_v2_job" "transcription_processor" {
+  project  = var.project_id
+  name     = "transcription-worker"
+  location = var.region
 
-# Container Registry permissions for Cloud Run Job images
-resource "google_project_iam_member" "storage_object_viewer" {
-  project = var.project_id
-  role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${google_service_account.transcription_service.email}"
-}
+  template {
+    template {
+      service_account = google_service_account.transcription_service.email
 
-# Cloud Storage bucket for temporary file processing
-resource "google_storage_bucket" "transcription_temp" {
-  name          = "${var.project_id}-transcription-temp"
-  location      = var.region
-  force_destroy = true
+      containers {
+        image = "gcr.io/${var.project_id}/transcription-worker:latest"
 
-  uniform_bucket_level_access = true
+        env {
+          name = "PROJECT_ID"
+          value = var.project_id
+        }
 
-  lifecycle_rule {
-    condition {
-      age = 1
+        env {
+          name = "SECRET_NAME"
+          value = "openai-api-key"
+        }
+
+        env {
+          name = "DROPBOX_ACCESS_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.dropbox_token.secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        resources {
+          limits = {
+            cpu    = "2"
+            memory = "8Gi"
+          }
+        }
+      }
+
+      timeout = "3600s"  # 1 hour timeout
     }
-    action {
-      type = "Delete"
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# Cloud Run Service for webhook handler
+resource "google_cloud_run_v2_service" "webhook_handler" {
+  project  = var.project_id
+  name     = "transcription-webhook"
+  location = var.region
+
+  template {
+    service_account = google_service_account.transcription_service.email
+
+    containers {
+      image = "gcr.io/${var.project_id}/transcription-webhook:latest"
+
+      ports {
+        container_port = 8080
+      }
+
+      env {
+        name = "PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name = "GCP_REGION"
+        value = var.region
+      }
+
+      env {
+        name = "WORKER_JOB_NAME"
+        value = google_cloud_run_v2_job.transcription_processor.name
+      }
+
+      env {
+        name = "DROPBOX_ACCESS_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.dropbox_token.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "DROPBOX_APP_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.dropbox_secret.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
     }
   }
 
-  versioning {
-    enabled = false
-  }
+  depends_on = [google_project_service.required_apis]
 }
 
-# Grant service account access to storage bucket
-resource "google_storage_bucket_iam_member" "transcription_bucket_admin" {
-  bucket = google_storage_bucket.transcription_temp.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.transcription_service.email}"
+# Allow public access to webhook handler
+resource "google_cloud_run_service_iam_member" "webhook_public_access" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloud_run_v2_service.webhook_handler.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
-# Pub/Sub topic for transcription events
-resource "google_pubsub_topic" "transcription_events" {
-  name = "transcription-events"
+# Outputs
+output "webhook_url" {
+  description = "URL for Dropbox webhook configuration"
+  value       = "${google_cloud_run_v2_service.webhook_handler.uri}/webhook"
 }
 
-# Pub/Sub subscription for processing events
-resource "google_pubsub_subscription" "transcription_processor" {
-  name  = "transcription-processor"
-  topic = google_pubsub_topic.transcription_events.name
-
-  ack_deadline_seconds = 600  # 10 minutes for processing
-
-  retry_policy {
-    minimum_backoff = "10s"
-    maximum_backoff = "600s"
-  }
-
-  dead_letter_policy {
-    dead_letter_topic     = google_pubsub_topic.transcription_dlq.id
-    max_delivery_attempts = 5
-  }
+output "worker_job_name" {
+  description = "Name of the worker Cloud Run job"
+  value       = google_cloud_run_v2_job.transcription_processor.name
 }
 
-# Dead letter queue for failed messages
-resource "google_pubsub_topic" "transcription_dlq" {
-  name = "transcription-dead-letter"
+output "service_account_email" {
+  description = "Service account email for the transcription service"
+  value       = google_service_account.transcription_service.email
 }
-
-# Secret Manager for OpenAI API key
-resource "google_secret_manager_secret" "openai_api_key" {
-  secret_id = "openai-api-key"
-
-  replication {
-    auto {}
-  }
-}
-
-# Secret for service account key (for Cloud Run Job)
-resource "google_secret_manager_secret" "service_account_key" {
-  secret_id = "service-account-key"
-
-  replication {
-    auto {}
-  }
-}
-
-# Store service account key in Secret Manager
-resource "google_secret_manager_secret_version" "service_account_key_version" {
-  secret      = google_secret_manager_secret.service_account_key.id
-  secret_data = base64decode(google_service_account_key.transcription_service_key.private_key)
-}
-
-# Note: The actual secret value should be set manually or via separate process
-# This is just the secret definition, not the value

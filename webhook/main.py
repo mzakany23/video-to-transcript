@@ -17,45 +17,41 @@ from flask import Request
 @functions_framework.http
 def webhook_handler(request: Request):
     """
-    HTTP Cloud Function to handle Google Drive push notifications
+    HTTP Cloud Function to handle Dropbox webhook notifications
     SECURITY: Early validation and rejection to prevent billing spikes
     
     Args:
-        request: HTTP request from Google Drive push notifications
+        request: HTTP request from Dropbox webhook notifications
     """
     # SECURITY: Immediate basic validation (cheapest operations first)
     if request.method != 'POST':
         return 'Method not allowed', 405
-        
-    # SECURITY: Quick header validation before any expensive operations
-    required_headers = ['X-Goog-Channel-Id', 'X-Goog-Resource-Id', 'X-Goog-Resource-State']
-    for header in required_headers:
-        if header not in request.headers:
-            print(f"⚠️ Missing header: {header} - rejecting request")
-            return 'Bad Request', 400
+    
+    # Verify Dropbox signature (basic security)
+    dropbox_signature = request.headers.get('X-Dropbox-Signature')
+    if not dropbox_signature:
+        print("⚠️ Missing Dropbox signature - rejecting request")
+        return 'Unauthorized', 401
     
     try:
-        # Get the notification data
-        channel_id = request.headers.get('X-Goog-Channel-Id')
-        resource_id = request.headers.get('X-Goog-Resource-Id')
-        resource_state = request.headers.get('X-Goog-Resource-State')
+        # Parse Dropbox webhook payload
+        webhook_data = request.get_json(force=True)
         
-        # SECURITY: Validate channel ID format (basic sanity check)
-        if not channel_id or not channel_id.startswith('transcription-'):
-            print(f"⚠️ Invalid channel ID: {channel_id} - rejecting request")
-            return 'Unauthorized', 401
+        if not webhook_data or 'list_folder' not in webhook_data:
+            print("⚠️ Invalid Dropbox webhook payload")
+            return 'Bad Request', 400
         
-        print(f"📧 Drive notification: channel={channel_id}, resource={resource_id}, state={resource_state}")
-        
-        # Only process 'update' and 'sync' events (ignore others quickly)
-        if resource_state not in ['update', 'sync']:
-            print(f"Ignoring resource state: {resource_state}")
+        accounts = webhook_data.get('list_folder', {}).get('accounts', [])
+        if not accounts:
+            print("ℹ️ No accounts in webhook - ignoring")
             return 'OK', 200
+        
+        print(f"📧 Dropbox notification: {len(accounts)} account(s) with changes")
         
         # SECURITY: Lightweight processing - trigger Cloud Run Job for heavy work
         try:
             processor = WebhookProcessor()
-            result = processor.trigger_transcription_job(channel_id, resource_id, resource_state)
+            result = processor.trigger_transcription_job(webhook_data)
             
             if result.get('success'):
                 print(f"✅ Triggered transcription job")
@@ -79,22 +75,20 @@ class WebhookProcessor:
     def __init__(self):
         """Initialize with minimal resources for fast webhook processing"""
         self.project_id = os.environ.get('PROJECT_ID')
-        self.region = os.environ.get('CLOUD_RUN_REGION', 'us-east1')
-        self.job_name = os.environ.get('CLOUD_RUN_JOB_NAME', 'transcription-processor-job')
+        self.region = os.environ.get('GCP_REGION', 'us-east1')
+        self.job_name = os.environ.get('WORKER_JOB_NAME', 'transcription-worker')
         
         # Initialize Cloud Run client for job triggering
         self.run_client = run_v2.JobsClient()
         self.job_path = f"projects/{self.project_id}/locations/{self.region}/jobs/{self.job_name}"
     
-    def trigger_transcription_job(self, channel_id: str, resource_id: str, resource_state: str) -> Dict[str, Any]:
+    def trigger_transcription_job(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         SECURITY: Lightweight operation - trigger Cloud Run Job for heavy processing
         Don't do expensive operations here to prevent billing spikes
         
         Args:
-            channel_id: Google Drive channel ID
-            resource_id: Google Drive resource ID  
-            resource_state: State of the resource (update, sync, etc.)
+            webhook_data: Dropbox webhook payload
             
         Returns:
             Dictionary with processing results
@@ -110,9 +104,7 @@ class WebhookProcessor:
                         run_v2.RunJobRequest.Overrides.ContainerOverride(
                             env=[
                                 run_v2.EnvVar(name="WEBHOOK_TRIGGER", value="true"),
-                                run_v2.EnvVar(name="CHANNEL_ID", value=channel_id),
-                                run_v2.EnvVar(name="RESOURCE_ID", value=resource_id),
-                                run_v2.EnvVar(name="RESOURCE_STATE", value=resource_state),
+                                run_v2.EnvVar(name="DROPBOX_WEBHOOK_DATA", value=json.dumps(webhook_data)),
                             ]
                         )
                     ]

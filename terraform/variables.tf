@@ -1,9 +1,8 @@
-# Variables for Google Cloud Platform setup
+# Variables for Dropbox transcription pipeline
 
 variable "project_id" {
   description = "The GCP project ID"
   type        = string
-  default     = ""  # Set this in your .tfvars file
 }
 
 variable "region" {
@@ -12,32 +11,14 @@ variable "region" {
   default     = "us-east1"
 }
 
-variable "zone" {
-  description = "The GCP zone"
+variable "dropbox_access_token" {
+  description = "Dropbox app access token"
   type        = string
-  default     = "us-east1-b"
+  sensitive   = true
 }
 
-variable "service_account_name" {
-  description = "Name for the transcription service account"
+variable "dropbox_app_secret" {
+  description = "Dropbox app secret for webhook verification"
   type        = string
-  default     = "transcription-service"
-}
-
-variable "monitored_folder_id" {
-  description = "Google Drive folder ID to monitor for new files"
-  type        = string
-  default     = ""
-}
-
-variable "raw_folder_id" {
-  description = "Google Drive folder ID to monitor for new files (raw folder)"
-  type        = string
-  default     = ""  # Set this in your .tfvars file
-}
-
-variable "processed_folder_id" {
-  description = "Google Drive folder ID where processed transcripts are saved"
-  type        = string
-  default     = ""  # Set this in your .tfvars file
+  sensitive   = true
 }

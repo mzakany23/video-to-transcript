@@ -1,22 +1,14 @@
-# Example Terraform variables file
-# Copy this to terraform.tfvars and update with your values
+# Example Terraform variables for Dropbox transcription pipeline
+# Copy this to terraform.tfvars and fill in your values
 
-# Required: Your Google Cloud Project ID
+# Required: Your GCP project ID
 project_id = "your-gcp-project-id"
 
-# Optional: Customize regions (defaults to us-east1)
+# Optional: GCP region (defaults to us-east1)
 region = "us-east1"
-zone   = "us-east1-b"
 
-# Required: Google Drive folder IDs (get these from your Google Drive URLs)
-# Raw folder: where users upload audio/video files
-raw_folder_id = "your-raw-folder-id-here"
+# Required: Dropbox app access token (create at https://www.dropbox.com/developers/apps)
+dropbox_access_token = "your-dropbox-access-token"
 
-# Processed folder: where transcription results are saved
-processed_folder_id = "your-processed-folder-id-here"
-
-# Optional: Legacy webhook monitoring (leave empty if not using)
-monitored_folder_id = ""
-
-# Optional: Service account name (has sensible default)
-# service_account_name = "transcription-service"
+# Required: Dropbox app secret for webhook verification
+dropbox_app_secret = "your-dropbox-app-secret"

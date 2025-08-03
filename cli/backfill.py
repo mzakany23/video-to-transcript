@@ -5,10 +5,15 @@ Backfill transcription CLI - processes existing files in Dropbox
 import argparse
 from datetime import datetime
 
-from ..core.dropbox_handler import DropboxHandler
-from ..core.transcription import TranscriptionService
-from ..core.audio_processor import AudioProcessor
-from ..config import Config
+# Import from worker service (need to add path)
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'worker', 'src'))
+
+from transcripts.core.dropbox_handler import DropboxHandler
+from transcripts.core.transcription import TranscriptionService
+from transcripts.core.audio_processor import AudioProcessor
+from transcripts.config import Config
 
 
 class BackfillProcessor:
