@@ -12,6 +12,7 @@ class Config:
     
     # Dropbox Configuration
     DROPBOX_ACCESS_TOKEN: str = os.environ.get("DROPBOX_ACCESS_TOKEN", "")
+    DROPBOX_REFRESH_TOKEN: str = os.environ.get("DROPBOX_REFRESH_TOKEN", "")
     DROPBOX_APP_SECRET: str = os.environ.get("DROPBOX_APP_SECRET", "")
     DROPBOX_APP_KEY: str = os.environ.get("DROPBOX_APP_KEY", "ry0wtf3rwnxda14")
     
@@ -47,9 +48,15 @@ class Config:
     def validate(cls) -> bool:
         """Validate that required configuration is present"""
         required_vars = [
-            "DROPBOX_ACCESS_TOKEN",
             "OPENAI_API_KEY",
         ]
+        
+        # Either access token OR (refresh token + app secret) is required
+        has_access_token = bool(cls.DROPBOX_ACCESS_TOKEN)
+        has_refresh_setup = bool(cls.DROPBOX_REFRESH_TOKEN and cls.DROPBOX_APP_SECRET)
+        
+        if not (has_access_token or has_refresh_setup):
+            required_vars.append("DROPBOX_ACCESS_TOKEN or (DROPBOX_REFRESH_TOKEN + DROPBOX_APP_SECRET)")
         
         missing = [var for var in required_vars if not getattr(cls, var)]
         

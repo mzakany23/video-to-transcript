@@ -5,6 +5,7 @@ Handles all Dropbox operations with clean interface
 
 import json
 import tempfile
+import requests
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 from datetime import datetime
@@ -37,6 +38,7 @@ class DropboxHandler:
         
         # Ensure folder structure exists
         self._setup_folder_structure()
+    
     
     def _setup_folder_structure(self):
         """Create folder structure if it doesn't exist (within scoped folder)"""
