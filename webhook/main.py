@@ -228,11 +228,13 @@ class WebhookProcessor:
             # Execute the job
             operation = self.run_client.run_job(request=request)
             
-            print(f"✅ Job triggered for {file_name}: {operation.name}")
+            # Get operation name properly
+            operation_name = getattr(operation, 'name', str(operation))
+            print(f"✅ Job triggered for {file_name}: {operation_name}")
             
             return {
                 'success': True,
-                'operation_name': operation.name,
+                'operation_name': operation_name,
                 'file_name': file_name,
                 'file_path': file_path
             }
