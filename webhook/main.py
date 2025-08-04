@@ -115,14 +115,31 @@ class WebhookProcessor:
         self.bucket_name = f"{self.project_id}-webhook-cursors"
         self.cursor_blob_name = "dropbox_cursors.json"
         
-        # Initialize Dropbox client to check files
-        access_token = os.environ.get('DROPBOX_ACCESS_TOKEN', '').strip()
-        if not access_token:
-            raise ValueError("DROPBOX_ACCESS_TOKEN required")
-        self.dbx = dropbox.Dropbox(access_token)
+        # Job tracking bucket and file
+        self.job_tracking_bucket_name = f"{self.project_id}-job-tracking"
+        self.job_tracking_blob_name = "processed_jobs.json"
+        
+        # Initialize Dropbox client with refresh token capability
+        refresh_token = os.environ.get('DROPBOX_REFRESH_TOKEN', '').strip()
+        app_key = os.environ.get('DROPBOX_APP_KEY', '').strip()
+        app_secret = os.environ.get('DROPBOX_APP_SECRET', '').strip()
+        
+        if refresh_token and app_key and app_secret:
+            print("🔄 Initializing webhook Dropbox client with refresh token...")
+            self.dbx = dropbox.Dropbox(
+                app_key=app_key,
+                app_secret=app_secret,
+                oauth2_refresh_token=refresh_token
+            )
+        else:
+            print("🔑 Falling back to access token for webhook...")
+            access_token = os.environ.get('DROPBOX_ACCESS_TOKEN', '').strip()
+            if not access_token:
+                raise ValueError("DROPBOX_ACCESS_TOKEN or refresh token setup required")
+            self.dbx = dropbox.Dropbox(access_token)
         
         # Raw folder path
-        self.raw_folder = "/jos-transcripts/raw"
+        self.raw_folder = os.environ.get('DROPBOX_RAW_FOLDER', '/transcripts/raw')
         
         # Supported audio/video formats
         self.supported_formats = {
@@ -149,11 +166,30 @@ class WebhookProcessor:
                 print("ℹ️ No new changes found in monitored folders")
                 return []
             
-            print(f"🎵 Found {len(changed_files)} changed audio/video files to process")
+            print(f"🎵 Found {len(changed_files)} changed audio/video files")
             
-            # Trigger one job per changed file
-            results = []
+            # Load job tracking to filter out already processed files
+            processed_jobs = self._load_job_tracking()
+            
+            # Filter out already processed files
+            unprocessed_files = []
             for file_info in changed_files:
+                file_id = file_info['path'].replace('/', '_').replace(' ', '_')
+                if file_id not in processed_jobs:
+                    unprocessed_files.append(file_info)
+                    print(f"  ✅ Will process: {file_info['name']}")
+                else:
+                    print(f"  ⏭️ Already processed: {file_info['name']}")
+            
+            if not unprocessed_files:
+                print("ℹ️ All changed files have already been processed")
+                return []
+            
+            print(f"🚀 Triggering jobs for {len(unprocessed_files)} unprocessed files")
+            
+            # Trigger one job per unprocessed file
+            results = []
+            for file_info in unprocessed_files:
                 result = self.trigger_job_for_file(file_info)
                 results.append(result)
             
@@ -216,6 +252,25 @@ class WebhookProcessor:
             print(f"❌ Error saving cursors: {str(e)}")
             import traceback
             print(f"🔍 Full traceback: {traceback.format_exc()}")
+    
+    def _load_job_tracking(self) -> Dict[str, Any]:
+        """Load job tracking data from Cloud Storage"""
+        try:
+            bucket = self.storage_client.bucket(self.job_tracking_bucket_name)
+            blob = bucket.blob(self.job_tracking_blob_name)
+            
+            if blob.exists():
+                job_data = blob.download_as_text()
+                processed_jobs = json.loads(job_data)
+                print(f"📥 Loaded job tracking from Cloud Storage: {len(processed_jobs)} processed files")
+                return processed_jobs
+            else:
+                print("📝 No existing job tracking found")
+                return {}
+                
+        except Exception as e:
+            print(f"⚠️ Error loading job tracking: {str(e)}, assuming no processed files")
+            return {}
     
     def get_changed_files_with_cursor(self) -> List[Dict[str, Any]]:
         """Get only files that actually changed using Dropbox cursor API"""

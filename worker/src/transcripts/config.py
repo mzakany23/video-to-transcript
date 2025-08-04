@@ -14,11 +14,11 @@ class Config:
     DROPBOX_ACCESS_TOKEN: str = os.environ.get("DROPBOX_ACCESS_TOKEN", "").strip()
     DROPBOX_REFRESH_TOKEN: str = os.environ.get("DROPBOX_REFRESH_TOKEN", "")
     DROPBOX_APP_SECRET: str = os.environ.get("DROPBOX_APP_SECRET", "")
-    DROPBOX_APP_KEY: str = os.environ.get("DROPBOX_APP_KEY", "ry0wtf3rwnxda14")
+    DROPBOX_APP_KEY: str = os.environ.get("DROPBOX_APP_KEY", "")
     
-    # Dropbox Folder Structure (scoped to 'jos-transcripts')
-    RAW_FOLDER: str = "/jos-transcripts/raw"
-    PROCESSED_FOLDER: str = "/jos-transcripts/processed"
+    # Dropbox Folder Structure
+    RAW_FOLDER: str = os.environ.get("DROPBOX_RAW_FOLDER", "/transcripts/raw")
+    PROCESSED_FOLDER: str = os.environ.get("DROPBOX_PROCESSED_FOLDER", "/transcripts/processed")
     
     # OpenAI Configuration
     OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
@@ -32,6 +32,11 @@ class Config:
     # Cloud Run Configuration
     TRANSCRIPTION_JOB_NAME: str = os.environ.get("TRANSCRIPTION_JOB_NAME", "transcription-processor-dropbox")
     WEBHOOK_PORT: int = int(os.environ.get("PORT", "8080"))
+    
+    # Twilio Configuration (for job completion notifications)
+    TWILIO_SECRET_NAME: str = os.environ.get("TWILIO_SECRET_NAME", "twilio-credentials")
+    NOTIFICATION_PHONE_NUMBER: str = os.environ.get("NOTIFICATION_PHONE_NUMBER", "")  # Format: +1AAABBBCCCC
+    ENABLE_SMS_NOTIFICATIONS: bool = os.environ.get("ENABLE_SMS_NOTIFICATIONS", "false").lower() == "true"
     
     # File Processing Configuration
     MAX_FILE_SIZE_MB: int = 25  # OpenAI Whisper limit

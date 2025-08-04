@@ -12,14 +12,16 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
+import time
 
-from google.cloud import secretmanager
+from google.cloud import secretmanager, storage
 from openai import OpenAI
 import ffmpeg
 
 # Import Dropbox handler from our src package
 sys.path.append('src')
 from transcripts.core.dropbox_handler import DropboxHandler
+from transcripts.core.notifications import NotificationService
 
 
 def main():
@@ -68,7 +70,15 @@ class TranscriptionJobProcessor:
         # Initialize Dropbox handler
         self.dropbox_handler = DropboxHandler()
         
-        # Job tracking file path
+        # Initialize notification service
+        self.notification_service = NotificationService(self.project_id)
+        
+        # Initialize Cloud Storage for job tracking persistence
+        self.storage_client = storage.Client()
+        self.bucket_name = f"{self.project_id}-job-tracking"
+        self.job_tracking_blob_name = "processed_jobs.json"
+        
+        # Job tracking file path (local cache)
         self.job_tracking_file = Path('/tmp/processed_jobs.json')
         
         print(f"🔧 Initialized transcription processor with Dropbox")
@@ -131,6 +141,9 @@ class TranscriptionJobProcessor:
     
     def _process_dropbox_files(self, max_files: int = 10):
         """Core method to process files from Dropbox"""
+        job_start_time = time.time()
+        failed_files = []
+        
         try:
             # Load job tracking
             processed_jobs = self._load_job_tracking()
@@ -164,6 +177,7 @@ class TranscriptionJobProcessor:
                         }
                     else:
                         print(f"❌ Failed to process: {file_info.get('name')} - {result.get('error')}")
+                        failed_files.append(file_info.get('name', 'unknown'))
                         # Mark as failed
                         processed_jobs[file_info['id']] = {
                             'name': file_info['name'],
@@ -177,6 +191,7 @@ class TranscriptionJobProcessor:
                     
                 except Exception as e:
                     print(f"❌ Error processing file {file_info.get('name', 'unknown')}: {str(e)}")
+                    failed_files.append(file_info.get('name', 'unknown'))
                     # Mark as failed
                     processed_jobs[file_info['id']] = {
                         'name': file_info.get('name', 'unknown'),
@@ -186,31 +201,105 @@ class TranscriptionJobProcessor:
                     }
                     self._save_job_tracking(processed_jobs)
             
+            # Calculate job duration
+            job_duration = time.time() - job_start_time
+            
             print(f"📊 Job completed: {processed_count}/{len(files_to_process)} files processed successfully")
+            
+            # Send notification if any files were processed
+            if len(files_to_process) > 0:
+                job_summary = {
+                    'processed_count': processed_count,
+                    'total_count': len(files_to_process),
+                    'duration': job_duration,
+                    'failed_files': failed_files
+                }
+                self.notification_service.send_job_completion(job_summary)
             
         except Exception as e:
             print(f"❌ Error in _process_dropbox_files: {str(e)}")
+            # Send error notification
+            self.notification_service.send_job_error(f"Job failed: {str(e)}")
             raise
     
     def _load_job_tracking(self) -> Dict[str, Any]:
-        """Load job tracking data from file"""
+        """Load job tracking data from Cloud Storage"""
         try:
-            if self.job_tracking_file.exists():
-                with open(self.job_tracking_file, 'r') as f:
-                    return json.load(f)
-            return {}
+            # Try to load from Cloud Storage first
+            bucket = self.storage_client.bucket(self.bucket_name)
+            blob = bucket.blob(self.job_tracking_blob_name)
+            
+            if blob.exists():
+                job_data = blob.download_as_text()
+                processed_jobs = json.loads(job_data)
+                print(f"📥 Loaded job tracking from Cloud Storage: {len(processed_jobs)} processed files")
+                
+                # Cache locally for faster access during this run
+                self.job_tracking_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(self.job_tracking_file, 'w') as f:
+                    json.dump(processed_jobs, f, indent=2)
+                
+                return processed_jobs
+            else:
+                print("📝 No existing job tracking found, starting fresh")
+                return {}
+                
         except Exception as e:
-            print(f"⚠️ Error loading job tracking: {str(e)}")
+            print(f"⚠️ Error loading job tracking from Cloud Storage: {str(e)}")
+            # Fallback to local file if it exists
+            try:
+                if self.job_tracking_file.exists():
+                    with open(self.job_tracking_file, 'r') as f:
+                        return json.load(f)
+            except Exception as local_e:
+                print(f"⚠️ Error loading local job tracking: {str(local_e)}")
             return {}
     
     def _save_job_tracking(self, processed_jobs: Dict[str, Any]):
-        """Save job tracking data to file"""
+        """Save job tracking data to Cloud Storage"""
+        try:
+            # Save to Cloud Storage for persistence
+            print(f"💾 Saving job tracking to Cloud Storage...")
+            
+            # Ensure bucket exists
+            bucket = self.storage_client.bucket(self.bucket_name)
+            try:
+                bucket.reload()
+                print(f"✅ Bucket exists: {self.bucket_name}")
+            except Exception as reload_error:
+                # Create bucket if it doesn't exist
+                print(f"📦 Creating job tracking bucket: {self.bucket_name}")
+                try:
+                    bucket = self.storage_client.create_bucket(self.bucket_name, location="us-east1")
+                    print(f"✅ Successfully created bucket: {self.bucket_name}")
+                except Exception as create_error:
+                    print(f"❌ Bucket creation failed: {str(create_error)}")
+                    # Fall back to local storage only
+                    self._save_job_tracking_local(processed_jobs)
+                    return
+            
+            # Save to Cloud Storage
+            blob = bucket.blob(self.job_tracking_blob_name)
+            job_data = json.dumps(processed_jobs, indent=2)
+            blob.upload_from_string(job_data, content_type='application/json')
+            print(f"✅ Saved job tracking to Cloud Storage: {len(processed_jobs)} files")
+            
+            # Also save locally for faster access during this run
+            self._save_job_tracking_local(processed_jobs)
+            
+        except Exception as e:
+            print(f"❌ Error saving job tracking to Cloud Storage: {str(e)}")
+            # Fall back to local storage only
+            self._save_job_tracking_local(processed_jobs)
+    
+    def _save_job_tracking_local(self, processed_jobs: Dict[str, Any]):
+        """Save job tracking data to local file (backup/cache)"""
         try:
             self.job_tracking_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.job_tracking_file, 'w') as f:
                 json.dump(processed_jobs, f, indent=2)
         except Exception as e:
-            print(f"⚠️ Error saving job tracking: {str(e)}")
+            print(f"⚠️ Error saving local job tracking: {str(e)}")
     
     
     def process_file(self, file_info: Dict[str, Any]) -> Dict[str, Any]:
