@@ -116,6 +116,8 @@ class TranscriptionJobProcessor:
     def process_single_file(self, file_path: str, file_name: str):
         """Process a single specific file"""
         print(f"🎯 Processing single file: {file_name} at {file_path}")
+        job_start_time = time.time()
+        failed_files = []
         
         try:
             # Create file info structure
@@ -132,11 +134,28 @@ class TranscriptionJobProcessor:
             
             if result.get('success'):
                 print(f"✅ Successfully processed: {file_name}")
+                processed_count = 1
             else:
                 print(f"❌ Failed to process: {file_name} - {result.get('error')}")
+                failed_files.append(file_name)
+                processed_count = 0
+            
+            # Calculate job duration
+            job_duration = time.time() - job_start_time
+            
+            # Send email notification for single file processing
+            job_summary = {
+                'processed_count': processed_count,
+                'total_count': 1,
+                'duration': job_duration,
+                'failed_files': failed_files
+            }
+            self.notification_service.send_job_completion(job_summary)
                 
         except Exception as e:
             print(f"❌ Error processing single file {file_name}: {str(e)}")
+            # Send error notification
+            self.notification_service.send_job_error(f"Single file processing failed for {file_name}: {str(e)}")
             raise
     
     def _process_dropbox_files(self, max_files: int = 10):
