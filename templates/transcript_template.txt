@@ -1,0 +1,17 @@
+Transcription Results
+===================
+Status: Waiting for audio file processing...
+
+Instructions:
+1. Drop your audio/video files in the 'raw' folder
+2. The system will automatically process them
+3. Results will appear here replacing this content
+4. Check back in a few minutes after uploading
+
+Original File: (will be updated)
+Processed: (will be updated)
+
+Transcription text will appear here...
+
+--- Detailed Segments ---
+Timestamp segments will appear here...

@@ -8,17 +8,18 @@ import json
 import os
 import tempfile
 import re
+import sys
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 
 from google.cloud import secretmanager
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 from openai import OpenAI
 import ffmpeg
-import io
+
+# Import Dropbox handler from our src package
+sys.path.append('src')
+from transcripts.core.dropbox_handler import DropboxHandler
 
 
 def main():
@@ -28,28 +29,34 @@ def main():
     # Initialize processor
     processor = TranscriptionJobProcessor()
     
-    # Check if triggered by webhook with specific file info
-    webhook_trigger = os.environ.get('WEBHOOK_TRIGGER', 'false').lower() == 'true'
+    # Check if processing a single specific file
+    single_file_mode = os.environ.get('PROCESS_SINGLE_FILE', 'false').lower() == 'true'
     
-    if webhook_trigger:
-        print("📧 Triggered by Drive webhook - processing new files")
-        processor.process_new_drive_files()
+    if single_file_mode:
+        target_file_path = os.environ.get('TARGET_FILE_PATH')
+        target_file_name = os.environ.get('TARGET_FILE_NAME')
+        
+        if target_file_path and target_file_name:
+            print(f"🎯 Processing single file: {target_file_name}")
+            processor.process_single_file(target_file_path, target_file_name)
+        else:
+            print("❌ Single file mode enabled but missing TARGET_FILE_PATH or TARGET_FILE_NAME")
+            return
     else:
-        print("⏰ Scheduled/manual run - processing all pending files")
-        processor.process_pending_drive_files()
+        # Legacy mode - process all pending files
+        print("⏰ Processing all pending files")
+        processor.process_pending_files()
     
     print("✅ Transcription job completed")
 
 
 class TranscriptionJobProcessor:
-    """Handles batch transcription processing for Cloud Run Jobs"""
+    """Handles transcription processing for Cloud Run Jobs using Dropbox"""
     
     def __init__(self):
         """Initialize with environment variables and clients"""
         self.project_id = os.environ.get('PROJECT_ID')
         self.secret_name = os.environ.get('SECRET_NAME')
-        self.raw_folder_id = os.environ.get('RAW_FOLDER_ID')
-        self.processed_folder_id = os.environ.get('PROCESSED_FOLDER_ID')
         
         # Initialize clients
         self.secret_client = secretmanager.SecretManagerServiceClient()
@@ -58,34 +65,16 @@ class TranscriptionJobProcessor:
         self.openai_api_key = self._get_secret(self.secret_name)
         self.openai_client = OpenAI(api_key=self.openai_api_key)
         
-        # Initialize Google Drive service using service account
-        self.drive_service = self._initialize_drive_service()
+        # Initialize Dropbox handler
+        self.dropbox_handler = DropboxHandler()
         
         # Job tracking file path
         self.job_tracking_file = Path('/tmp/processed_jobs.json')
         
-        print(f"🔧 Initialized transcription processor")
-        print(f"📁 Raw folder ID: {self.raw_folder_id}")
-        print(f"📁 Processed folder ID: {self.processed_folder_id}")
-    
-    def _initialize_drive_service(self):
-        """Initialize Google Drive service using service account"""
-        try:
-            # Use the service account key from the environment
-            service_account_info = json.loads(os.environ.get('SERVICE_ACCOUNT_KEY', '{}'))
-            if not service_account_info:
-                raise ValueError("SERVICE_ACCOUNT_KEY environment variable not set")
-            
-            credentials = service_account.Credentials.from_service_account_info(
-                service_account_info,
-                scopes=['https://www.googleapis.com/auth/drive']
-            )
-            
-            return build('drive', 'v3', credentials=credentials)
-            
-        except Exception as e:
-            print(f"❌ Error initializing Drive service: {str(e)}")
-            raise
+        print(f"🔧 Initialized transcription processor with Dropbox")
+        folder_info = self.dropbox_handler.get_folder_info()
+        print(f"📁 Raw folder: {folder_info['raw_folder']}")
+        print(f"📁 Processed folder: {folder_info['processed_folder']}")
     
     def _get_secret(self, secret_name: str) -> str:
         """Retrieve secret from Google Secret Manager"""
@@ -93,41 +82,68 @@ class TranscriptionJobProcessor:
         response = self.secret_client.access_secret_version(request={"name": name})
         return response.payload.data.decode("UTF-8")
     
-    def process_new_drive_files(self):
-        """Process new files in Google Drive (triggered by webhook)"""
-        print("📥 Processing new files from Google Drive...")
-        self._process_drive_files(max_files=5)  # Limit for webhook triggers
+    def process_webhook_trigger(self):
+        """Process files triggered by Dropbox webhook"""
+        print("📥 Processing webhook trigger from Dropbox...")
+        
+        # Get webhook data from environment
+        webhook_data_str = os.environ.get('DROPBOX_WEBHOOK_DATA')
+        if webhook_data_str:
+            print("📊 Processing webhook data")
+            # For now, just process batch - webhook tells us something changed
+            # In future, could parse specific changed files
+        
+        # Process recent files (webhook indicates changes)
+        max_files = int(os.environ.get('MAX_FILES', '5'))  # Default 5 for webhook triggers
+        self._process_dropbox_files(max_files=max_files)
     
-    def process_pending_drive_files(self):
-        """Process all pending files in Google Drive (scheduled/manual run)"""
-        print("📥 Processing all pending files from Google Drive...")
-        self._process_drive_files(max_files=10)  # Higher limit for scheduled runs
+    def process_pending_files(self):
+        """Process all pending files in Dropbox (scheduled/manual run)"""  
+        print("📥 Processing all pending files from Dropbox...")
+        max_files = int(os.environ.get('MAX_FILES', '10'))  # Default 10 for scheduled runs
+        self._process_dropbox_files(max_files=max_files)
     
-    def _process_drive_files(self, max_files: int = 10):
-        """Core method to process files from Google Drive"""
+    def process_single_file(self, file_path: str, file_name: str):
+        """Process a single specific file"""
+        print(f"🎯 Processing single file: {file_name} at {file_path}")
+        
+        try:
+            # Create file info structure
+            file_info = {
+                'id': file_path.replace('/', '_').replace(' ', '_'),
+                'name': file_name,
+                'path': file_path,
+                'size': 0,  # Will be determined during download
+                'modified': datetime.now().isoformat()
+            }
+            
+            # Process the file
+            result = self.process_file(file_info)
+            
+            if result.get('success'):
+                print(f"✅ Successfully processed: {file_name}")
+            else:
+                print(f"❌ Failed to process: {file_name} - {result.get('error')}")
+                
+        except Exception as e:
+            print(f"❌ Error processing single file {file_name}: {str(e)}")
+            raise
+    
+    def _process_dropbox_files(self, max_files: int = 10):
+        """Core method to process files from Dropbox"""
         try:
             # Load job tracking
             processed_jobs = self._load_job_tracking()
             
-            # Get audio/video files from raw folder
-            audio_video_files = self._get_audio_video_files()
+            # Get audio/video files from Dropbox raw folder
+            audio_video_files = self.dropbox_handler.get_audio_video_files(list(processed_jobs.keys()))
             
             if not audio_video_files:
                 print("ℹ️ No audio/video files found in raw folder")
                 return
             
-            # Filter out already processed files
-            new_files = [
-                file_info for file_info in audio_video_files
-                if file_info['id'] not in processed_jobs
-            ]
-            
-            if not new_files:
-                print("ℹ️ No new files to process")
-                return
-            
             # Limit processing for performance
-            files_to_process = new_files[:max_files]
+            files_to_process = audio_video_files[:max_files]
             print(f"📨 Found {len(files_to_process)} new files to process (limited to {max_files})")
             
             # Process each file
@@ -173,7 +189,7 @@ class TranscriptionJobProcessor:
             print(f"📊 Job completed: {processed_count}/{len(files_to_process)} files processed successfully")
             
         except Exception as e:
-            print(f"❌ Error in process_drive_files: {str(e)}")
+            print(f"❌ Error in _process_dropbox_files: {str(e)}")
             raise
     
     def _load_job_tracking(self) -> Dict[str, Any]:
@@ -196,53 +212,6 @@ class TranscriptionJobProcessor:
         except Exception as e:
             print(f"⚠️ Error saving job tracking: {str(e)}")
     
-    def _get_audio_video_files(self) -> List[Dict[str, Any]]:
-        """Get list of audio/video files from Google Drive raw folder"""
-        try:
-            # Define audio/video MIME types and extensions
-            audio_video_types = [
-                'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv',
-                'video/webm', 'video/mkv', 'video/m4v', 'video/3gp', 'video/quicktime',
-                'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/aac', 'audio/ogg',
-                'audio/flac', 'audio/m4a', 'audio/wma', 'audio/opus'
-            ]
-            
-            # Query for files in raw folder
-            query = f"'{self.raw_folder_id}' in parents and trashed=false"
-            
-            results = self.drive_service.files().list(
-                q=query,
-                fields='files(id,name,mimeType,size,createdTime)',
-                orderBy='createdTime desc'
-            ).execute()
-            
-            files = results.get('files', [])
-            
-            # Filter for audio/video files
-            audio_video_files = []
-            for file_info in files:
-                mime_type = file_info.get('mimeType', '')
-                name = file_info.get('name', '')
-                
-                # Check by MIME type or file extension
-                is_audio_video = (
-                    mime_type in audio_video_types or
-                    any(name.lower().endswith(ext) for ext in [
-                        '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv',
-                        '.m4v', '.3gp', '.mp3', '.wav', '.aac', '.ogg', '.flac',
-                        '.m4a', '.wma', '.opus'
-                    ])
-                )
-                
-                if is_audio_video:
-                    audio_video_files.append(file_info)
-            
-            print(f"📁 Found {len(audio_video_files)} audio/video files in raw folder")
-            return audio_video_files
-            
-        except Exception as e:
-            print(f"❌ Error getting audio/video files: {str(e)}")
-            return []
     
     def process_file(self, file_info: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single file for transcription"""
@@ -254,11 +223,12 @@ class TranscriptionJobProcessor:
             
             print(f"🔄 Processing: {file_name}")
             
-            # Download file from Google Drive to temporary storage
-            temp_file_path = self._download_from_drive(file_id, file_name)
+            # Download file from Dropbox to temporary storage
+            file_path = file_info.get('path')
+            temp_file_path = self._download_from_dropbox(file_path, file_name)
             
             if not temp_file_path:
-                return {'success': False, 'error': 'Failed to download file from Drive'}
+                return {'success': False, 'error': 'Failed to download file from Dropbox'}
             
             # Process audio based on file type
             audio_file_path = self._prepare_audio_file(temp_file_path, file_name)
@@ -272,9 +242,9 @@ class TranscriptionJobProcessor:
             if not transcript_result.get('success'):
                 return transcript_result
             
-            # Upload results back to Google Drive
-            upload_result = self._upload_results_to_drive(
-                file_info, transcript_result['transcript_data'], processing_start_time
+            # Upload results back to Dropbox
+            upload_result = self.dropbox_handler.upload_transcript_results(
+                transcript_result['transcript_data'], file_name
             )
             
             # Clean up temporary files
@@ -294,24 +264,11 @@ class TranscriptionJobProcessor:
             print(f"❌ Error processing file {file_info.get('name', 'unknown')}: {str(e)}")
             return {'success': False, 'error': str(e)}
     
-    def _download_from_drive(self, file_id: str, file_name: str) -> Path:
-        """Download file from Google Drive to temporary location"""
+    def _download_from_dropbox(self, file_path: str, file_name: str) -> Path:
+        """Download file from Dropbox to temporary location"""
         try:
-            request = self.drive_service.files().get_media(fileId=file_id)
-            
-            # Create temporary file
-            temp_dir = Path(tempfile.mkdtemp())
-            temp_file = temp_dir / f"temp_{file_name}"
-            
-            with open(temp_file, 'wb') as f:
-                downloader = MediaIoBaseDownload(f, request)
-                done = False
-                while done is False:
-                    status, done = downloader.next_chunk()
-            
-            print(f"✅ Downloaded: {file_name} ({temp_file.stat().st_size / 1024 / 1024:.1f}MB)")
+            temp_file = self.dropbox_handler.download_file(file_path, file_name)
             return temp_file
-            
         except Exception as e:
             print(f"❌ Error downloading {file_name}: {str(e)}")
             return None
@@ -429,64 +386,6 @@ class TranscriptionJobProcessor:
             print(f"❌ Error transcribing audio: {str(e)}")
             return {'success': False, 'error': str(e)}
     
-    def _upload_results_to_drive(self, file_info: Dict, transcript_data: Dict, processing_start_time: datetime) -> Dict:
-        """Upload transcript results to Google Drive processed folder"""
-        try:
-            original_name = file_info.get('name', 'unknown')
-            sanitized_filename = sanitize_filename(original_name, processing_start_time)
-            
-            print(f"📤 Uploading results: {original_name} -> {sanitized_filename}")
-            
-            # Create text content
-            text_content = transcript_data.get('text', '')
-            json_content = json.dumps(transcript_data, indent=2)
-            
-            # Upload .txt file
-            txt_file_metadata = {
-                'name': sanitized_filename,
-                'parents': [self.processed_folder_id]
-            }
-            
-            txt_media = MediaIoBaseUpload(
-                io.BytesIO(text_content.encode('utf-8')),
-                mimetype='text/plain'
-            )
-            
-            txt_file = self.drive_service.files().create(
-                body=txt_file_metadata,
-                media_body=txt_media,
-                fields='id'
-            ).execute()
-            
-            # Upload .json file
-            json_filename = sanitized_filename.replace('.txt', '.json')
-            json_file_metadata = {
-                'name': json_filename,
-                'parents': [self.processed_folder_id]
-            }
-            
-            json_media = MediaIoBaseUpload(
-                io.BytesIO(json_content.encode('utf-8')),
-                mimetype='application/json'
-            )
-            
-            json_file = self.drive_service.files().create(
-                body=json_file_metadata,
-                media_body=json_media,
-                fields='id'
-            ).execute()
-            
-            print(f"✅ Uploaded: {sanitized_filename} and {json_filename}")
-            
-            return {
-                'sanitized_filename': sanitized_filename,
-                'txt_file_id': txt_file.get('id'),
-                'json_file_id': json_file.get('id')
-            }
-            
-        except Exception as e:
-            print(f"❌ Error uploading results: {str(e)}")
-            return {'error': str(e)}
 
 
 def sanitize_filename(original_name: str, timestamp: datetime) -> str:
