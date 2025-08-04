@@ -10,8 +10,8 @@ from typing import Optional
 class Config:
     """Centralized configuration management"""
     
-    # Dropbox Configuration
-    DROPBOX_ACCESS_TOKEN: str = os.environ.get("DROPBOX_ACCESS_TOKEN", "")
+    # Dropbox Configuration  
+    DROPBOX_ACCESS_TOKEN: str = os.environ.get("DROPBOX_ACCESS_TOKEN", "").strip()
     DROPBOX_REFRESH_TOKEN: str = os.environ.get("DROPBOX_REFRESH_TOKEN", "")
     DROPBOX_APP_SECRET: str = os.environ.get("DROPBOX_APP_SECRET", "")
     DROPBOX_APP_KEY: str = os.environ.get("DROPBOX_APP_KEY", "ry0wtf3rwnxda14")

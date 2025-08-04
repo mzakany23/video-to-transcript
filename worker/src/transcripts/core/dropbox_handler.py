@@ -24,7 +24,9 @@ class DropboxHandler:
     
     def __init__(self, access_token: Optional[str] = None):
         """Initialize Dropbox handler with access token"""
-        self.access_token = access_token or Config.DROPBOX_ACCESS_TOKEN
+        self.access_token = (access_token or Config.DROPBOX_ACCESS_TOKEN)
+        if self.access_token:
+            self.access_token = self.access_token.strip()  # Remove any whitespace/newlines
         if not self.access_token:
             raise ValueError("Dropbox access token is required")
         
@@ -60,8 +62,11 @@ class DropboxHandler:
         processed_jobs = processed_jobs or []
         
         try:
+            print(f"🔍 Searching for files in: {Config.RAW_FOLDER}")
             result = self.dbx.files_list_folder(Config.RAW_FOLDER)
             files = result.entries
+            
+            print(f"📋 Found {len(files)} total entries in folder")
             
             # Get additional pages if they exist
             while result.has_more:
@@ -71,19 +76,29 @@ class DropboxHandler:
             audio_video_files = []
             
             for file_entry in files:
+                print(f"🔍 Checking entry: {getattr(file_entry, 'name', 'NO_NAME')} (type: {type(file_entry).__name__})")
+                
                 if not hasattr(file_entry, 'path_display'):
+                    print(f"  ❌ No path_display attribute")
                     continue
                 
                 file_name = file_entry.name
                 file_path = file_entry.path_display
+                print(f"  📄 File: {file_name} at {file_path}")
                 
                 # Check if it's a supported audio/video format
-                if Config.is_supported_format(file_name):
+                is_supported = Config.is_supported_format(file_name)
+                print(f"  🎵 Is supported format? {is_supported}")
+                
+                if is_supported:
                     # Create unique ID from path for tracking
                     file_id = file_path.replace('/', '_').replace(' ', '_')
                     
                     # Check if already processed
-                    if file_id not in processed_jobs:
+                    already_processed = file_id in processed_jobs
+                    print(f"  ♻️ Already processed? {already_processed} (file_id: {file_id})")
+                    
+                    if not already_processed:
                         file_info = {
                             'id': file_id,
                             'name': file_name,
@@ -93,6 +108,7 @@ class DropboxHandler:
                             'dropbox_entry': file_entry
                         }
                         audio_video_files.append(file_info)
+                        print(f"  ✅ Added to processing queue")
             
             # Sort by modification time (oldest first for processing)
             audio_video_files.sort(key=lambda x: x.get('modified') or datetime.min)
