@@ -11,7 +11,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 import functions_framework
-from google.cloud import run_v2
+from google.cloud import run_v2, storage
 from flask import Request
 import dropbox
 
@@ -75,6 +75,7 @@ def webhook_handler(request: Request):
             return 'OK', 200
         
         print(f"📧 Dropbox notification: {len(accounts)} account(s) with changes")
+        print(f"🔍 Full webhook payload: {json.dumps(webhook_data, indent=2)}")
         
         # Get changed files and trigger individual jobs
         try:
@@ -109,6 +110,11 @@ class WebhookProcessor:
         self.run_client = run_v2.JobsClient()
         self.job_path = f"projects/{self.project_id}/locations/{self.region}/jobs/{self.job_name}"
         
+        # Initialize Cloud Storage for cursor persistence
+        self.storage_client = storage.Client()
+        self.bucket_name = f"{self.project_id}-webhook-cursors"
+        self.cursor_blob_name = "dropbox_cursors.json"
+        
         # Initialize Dropbox client to check files
         access_token = os.environ.get('DROPBOX_ACCESS_TOKEN', '').strip()
         if not access_token:
@@ -136,16 +142,16 @@ class WebhookProcessor:
             List of job trigger results
         """
         try:
-            # Get recently changed files in raw folder
-            changed_files = self.get_changed_audio_files()
+            # Get only the files that actually changed using cursors
+            changed_files = self.get_changed_files_with_cursor()
             
             if not changed_files:
-                print("ℹ️ No audio/video files found in raw folder")
+                print("ℹ️ No new changes found in monitored folders")
                 return []
             
-            print(f"🎵 Found {len(changed_files)} audio/video files to process")
+            print(f"🎵 Found {len(changed_files)} changed audio/video files to process")
             
-            # Trigger one job per file
+            # Trigger one job per changed file
             results = []
             for file_info in changed_files:
                 result = self.trigger_job_for_file(file_info)
@@ -157,17 +163,141 @@ class WebhookProcessor:
             print(f"❌ Error processing webhook notification: {str(e)}")
             return [{'success': False, 'error': str(e)}]
     
-    def get_changed_audio_files(self) -> List[Dict[str, Any]]:
-        """Get audio/video files from raw folder that need processing"""
+    def _load_cursors(self) -> Dict[str, str]:
+        """Load cursors from Cloud Storage"""
         try:
-            # List files in raw folder
+            bucket = self.storage_client.bucket(self.bucket_name)
+            blob = bucket.blob(self.cursor_blob_name)
+            
+            if blob.exists():
+                cursor_data = blob.download_as_text()
+                cursors = json.loads(cursor_data)
+                print(f"📥 Loaded cursors from storage: {list(cursors.keys())}")
+                return cursors
+            else:
+                print("📝 No existing cursors found, starting fresh")
+                return {}
+                
+        except Exception as e:
+            print(f"⚠️ Error loading cursors: {str(e)}, starting fresh")
+            return {}
+    
+    def _save_cursors(self, cursors: Dict[str, str]):
+        """Save cursors to Cloud Storage"""
+        try:
+            print(f"🔧 Attempting to save cursors to bucket: {self.bucket_name}")
+            print(f"🔧 Project ID: {self.project_id}, Region: {self.region}")
+            
+            # Ensure bucket exists
+            bucket = self.storage_client.bucket(self.bucket_name)
+            try:
+                print(f"🔧 Checking if bucket exists...")
+                bucket.reload()
+                print(f"✅ Bucket exists: {self.bucket_name}")
+            except Exception as reload_error:
+                # Create bucket if it doesn't exist
+                print(f"❌ Bucket reload failed: {str(reload_error)}")
+                print(f"📦 Creating cursor storage bucket: {self.bucket_name}")
+                try:
+                    bucket = self.storage_client.create_bucket(self.bucket_name, location=self.region)
+                    print(f"✅ Successfully created bucket: {self.bucket_name}")
+                except Exception as create_error:
+                    print(f"❌ Bucket creation failed: {str(create_error)}")
+                    raise
+            
+            # Save cursors
+            print(f"💾 Uploading cursor data...")
+            blob = bucket.blob(self.cursor_blob_name)
+            cursor_data = json.dumps(cursors, indent=2)
+            blob.upload_from_string(cursor_data, content_type='application/json')
+            print(f"✅ Saved cursors to storage: {list(cursors.keys())}")
+            
+        except Exception as e:
+            print(f"❌ Error saving cursors: {str(e)}")
+            import traceback
+            print(f"🔍 Full traceback: {traceback.format_exc()}")
+    
+    def get_changed_files_with_cursor(self) -> List[Dict[str, Any]]:
+        """Get only files that actually changed using Dropbox cursor API"""
+        try:
+            # Load existing cursors from storage
+            cursors = self._load_cursors()
+            cursor = cursors.get(self.raw_folder)
+            
+            if cursor is None:
+                # First time - get initial cursor
+                print("🔄 Getting initial cursor for raw folder")
+                result = self.dbx.files_list_folder(self.raw_folder)
+                cursor = result.cursor
+                cursors[self.raw_folder] = cursor
+                self._save_cursors(cursors)
+                
+                # On first run, don't process existing files (avoid initial flood)
+                print("ℹ️ Initial cursor set - skipping existing files to prevent flood")
+                return []
+            
+            # Get changes since last cursor
+            print(f"🔄 Checking for changes since last cursor")
+            try:
+                result = self.dbx.files_list_folder_continue(cursor)
+            except dropbox.exceptions.ApiError as e:
+                if 'reset' in str(e).lower():
+                    print("⚠️ Cursor expired, getting fresh cursor")
+                    result = self.dbx.files_list_folder(self.raw_folder)
+                    cursors[self.raw_folder] = result.cursor
+                    self._save_cursors(cursors)
+                    return []  # Skip processing on reset
+                else:
+                    raise
+            
+            # Update cursor for next time
+            cursors[self.raw_folder] = result.cursor
+            self._save_cursors(cursors)
+            
+            # Process only the changes
+            changed_files = []
+            for entry in result.entries:
+                print(f"🔍 Change detected: {getattr(entry, 'name', 'NO_NAME')} (type: {type(entry).__name__})")
+                
+                # Skip deleted files
+                if isinstance(entry, dropbox.files.DeletedMetadata):
+                    print(f"  ⏭️ Skipping deleted file")
+                    continue
+                
+                # Only process files in our raw folder
+                if not hasattr(entry, 'path_display') or not entry.path_display.startswith(self.raw_folder):
+                    print(f"  ⏭️ Skipping file outside raw folder")
+                    continue
+                
+                file_name = entry.name
+                file_extension = os.path.splitext(file_name)[1].lower()
+                
+                # Check if it's a supported audio/video format
+                if file_extension in self.supported_formats:
+                    print(f"  ✅ New audio/video file: {file_name}")
+                    file_info = {
+                        'name': file_name,
+                        'path': entry.path_display,
+                        'size': getattr(entry, 'size', 0),
+                        'modified': getattr(entry, 'client_modified', None)
+                    }
+                    changed_files.append(file_info)
+                else:
+                    print(f"  ⏭️ Skipping unsupported format: {file_extension}")
+            
+            return changed_files
+            
+        except Exception as e:
+            print(f"❌ Error getting changed files with cursor: {str(e)}")
+            # Fallback to full scan on error
+            return self._fallback_get_audio_files()
+    
+    def _fallback_get_audio_files(self) -> List[Dict[str, Any]]:
+        """Fallback method - scan all files (use only on error)"""
+        try:
+            print("⚠️ Using fallback method - scanning all files")
             result = self.dbx.files_list_folder(self.raw_folder)
             files = result.entries
-            
-            # Get additional pages if they exist
-            while result.has_more:
-                result = self.dbx.files_list_folder_continue(result.cursor)
-                files.extend(result.entries)
             
             audio_files = []
             for file_entry in files:
@@ -177,7 +307,6 @@ class WebhookProcessor:
                 file_name = file_entry.name
                 file_extension = os.path.splitext(file_name)[1].lower()
                 
-                # Check if it's a supported format
                 if file_extension in self.supported_formats:
                     file_info = {
                         'name': file_name,
@@ -190,7 +319,7 @@ class WebhookProcessor:
             return audio_files
             
         except Exception as e:
-            print(f"❌ Error getting changed files: {str(e)}")
+            print(f"❌ Error in fallback method: {str(e)}")
             return []
     
     def trigger_job_for_file(self, file_info: Dict[str, Any]) -> Dict[str, Any]:

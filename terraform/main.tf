@@ -106,6 +106,12 @@ resource "google_project_iam_member" "run_invoker" {
   member  = "serviceAccount:${google_service_account.transcription_service.email}"
 }
 
+resource "google_project_iam_member" "storage_admin" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.transcription_service.email}"
+}
+
 # Cloud Run Job for transcription processing
 resource "google_cloud_run_v2_job" "transcription_processor" {
   project  = var.project_id
