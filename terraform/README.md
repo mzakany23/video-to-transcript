@@ -59,20 +59,88 @@ This directory contains Terraform configuration to automatically set up Google C
 
 ## What Gets Created
 
-- ✅ **Service Account**: `transcription-service@jos-transcripts.iam.gserviceaccount.com`
-- ✅ **API Enablement**: Google Drive API, IAM API
-- ✅ **IAM Roles**: Drive Admin, Storage Admin
-- ✅ **Service Account Key**: Automatically saved to `../service-account.json`
+- ✅ **Cloud Functions**: Webhook handler for Dropbox notifications
+- ✅ **Cloud Run Job**: Transcription worker using OpenAI Whisper
+- ✅ **Service Account**: `transcription-dropbox-service@jos-transcripts.iam.gserviceaccount.com`
+- ✅ **Secret Manager**: Stores Dropbox tokens, OpenAI API key, Gmail credentials
+- ✅ **Storage Buckets**: For function source code and job tracking
+- ✅ **IAM Roles**: Secret Manager access, Cloud Run invoker, Storage admin
+
+## Required Variables
+
+Edit `terraform.tfvars` with these required values:
+
+```hcl
+# Project Configuration
+project_id = "jos-transcripts"
+region     = "us-east1"
+
+# Dropbox Configuration
+dropbox_access_token = "your-dropbox-access-token"
+dropbox_app_secret   = "your-dropbox-app-secret"
+
+# Gmail Configuration
+gmail_address      = "your-email@gmail.com"
+gmail_app_password = "your-16-char-app-password"
+notification_emails = ["recipient@email.com"]
+```
+
+## Adding Email Notification Recipients
+
+To add more people to email notifications, simply add their email addresses to the list in `terraform.tfvars`:
+
+```hcl
+notification_emails = [
+  "mzakany@gmail.com",
+  "colleague@company.com", 
+  "manager@company.com",
+  "team-lead@company.com"
+]
+```
+
+Then apply the changes:
+```bash
+terraform apply
+```
+
+The system will automatically convert this list to a comma-separated format for the notification service.
 
 ## After Deployment
 
-The `service-account.json` file will be created in the project root. Your transcription service will automatically use this for authentication.
+1. **Get webhook URL**:
+   ```bash
+   terraform output webhook_url
+   ```
 
-Test the setup:
-```bash
-cd ..
-uv run python setup_google_credentials.py
-```
+2. **Configure Dropbox webhook**:
+   - Go to Dropbox App Console
+   - Add the webhook URL to your app
+   - Set folder path to `/jos-transcripts/raw`
+
+3. **Test the pipeline**:
+   - Upload an audio file to `/jos-transcripts/raw/` in Dropbox
+   - Check logs: `gcloud functions logs read transcription-webhook --region=us-east1 --limit=10`
+   - Verify email notification received
+
+## Making Changes
+
+When updating worker code:
+
+1. **Build and push new container**:
+   ```bash
+   docker buildx build --platform linux/amd64 -t gcr.io/jos-transcripts/transcription-worker:latest worker/ --push
+   ```
+
+2. **Apply terraform changes**:
+   ```bash
+   terraform apply
+   ```
+
+## Monitoring
+
+- **Webhook logs**: `gcloud functions logs read transcription-webhook --region=us-east1 --limit=20`
+- **Worker logs**: `gcloud logging read "resource.type=cloud_run_job" --limit=10`
+- **Secrets**: `gcloud secrets list --project=jos-transcripts`
 
 ## Cleanup
 
@@ -83,7 +151,8 @@ terraform destroy
 
 ## Security Notes
 
-- The `service-account.json` file contains sensitive credentials
-- It's automatically added to `.gitignore`
-- Store securely and never commit to version control
-- In production, use Google Secret Manager instead of local files
+- All sensitive credentials are stored in Google Secret Manager
+- Never commit `terraform.tfvars` to version control (it's gitignored)
+- Service account has minimal required permissions
+- Webhook uses signature verification for security
+- Gmail uses app-specific passwords, not account passwords

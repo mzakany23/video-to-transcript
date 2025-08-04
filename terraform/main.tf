@@ -35,9 +35,9 @@ variable "gmail_app_password" {
   sensitive   = true
 }
 
-variable "notification_email" {
-  description = "Email address to receive notifications"
-  type        = string
+variable "notification_emails" {
+  description = "List of email addresses to receive notifications"
+  type        = list(string)
 }
 
 # Enable required APIs
@@ -190,7 +190,7 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
 
         env {
           name  = "NOTIFICATION_EMAIL"
-          value = var.notification_email
+          value = join(",", var.notification_emails)
         }
 
         env {
