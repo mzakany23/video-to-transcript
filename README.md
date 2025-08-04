@@ -8,6 +8,7 @@ Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload f
 - **Multiple Formats**: Audio (mp3, wav, m4a) and video (mp4, mov, avi, webm)
 - **Serverless Architecture**: Scales automatically with Google Cloud Run
 - **Structured Output**: Both JSON (with timestamps) and plain text formats
+- **SMS Notifications**: Get text alerts when transcription jobs complete
 
 ## Quick Start
 
@@ -100,6 +101,61 @@ transcripts/
 ├── templates/                   # 📄 Shared output templates
 ├── terraform/                   # 🏗️  Infrastructure as Code
 └── tests/                       # 🧪 Integration tests
+
+## Deployment
+
+### Deploy Worker Changes
+
+1. **Build and push Docker image**:
+   ```bash
+   cd worker
+   gcloud builds submit --tag gcr.io/YOUR_PROJECT/transcription-worker:latest
+   ```
+
+2. **Update environment variables** (if needed):
+   ```bash
+   gcloud run jobs update transcription-worker \
+     --set-env-vars ENABLE_SMS_NOTIFICATIONS=true,NOTIFICATION_PHONE_NUMBER=+1XXXXXXXXXX \
+     --region us-east1 \
+     --project YOUR_PROJECT
+   ```
+
+3. **Test**: Drop a file in your Dropbox raw folder
+
+### Deploy Webhook Changes
+
+```bash
+cd terraform
+gcloud functions deploy webhook-handler \
+  --source ../webhook \
+  --entry-point webhook_handler \
+  --runtime python311 \
+  --trigger-http \
+  --allow-unauthenticated \
+  --region us-east1
+```
+
+### Environment Variables
+
+**Worker Job**:
+- `ENABLE_SMS_NOTIFICATIONS`: Enable SMS alerts (true/false)
+- `NOTIFICATION_PHONE_NUMBER`: Phone for notifications
+- `TWILIO_SECRET_NAME`: Twilio credentials secret name
+- `MAX_FILES`: Max files per job run
+
+**Webhook**:
+- `DROPBOX_APP_SECRET`: For webhook verification
+- `WORKER_JOB_NAME`: Cloud Run job to trigger
+
+### Monitoring
+
+```bash
+# View job runs
+gcloud run jobs executions list --job transcription-worker --region us-east1
+
+# View logs
+gcloud logging read "resource.type=cloud_run_job" --limit 50
+```
 
 ## Troubleshooting
 

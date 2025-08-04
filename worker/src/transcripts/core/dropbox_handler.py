@@ -17,30 +17,43 @@ except ImportError:
     raise ImportError("Dropbox SDK not installed. Run: uv add dropbox")
 
 from ..config import Config
+from .dropbox_auth import DropboxAuthManager
 
 
 class DropboxHandler:
     """Handles Dropbox operations for the transcription pipeline"""
     
-    def __init__(self, access_token: Optional[str] = None):
-        """Initialize Dropbox handler with access token"""
-        self.access_token = (access_token or Config.DROPBOX_ACCESS_TOKEN)
-        if self.access_token:
-            self.access_token = self.access_token.strip()  # Remove any whitespace/newlines
-        if not self.access_token:
-            raise ValueError("Dropbox access token is required")
+    def __init__(self, project_id: str = None):
+        """Initialize Dropbox handler with automated token management"""
+        self.project_id = project_id or Config.PROJECT_ID
+        if not self.project_id:
+            raise ValueError("Project ID is required for Dropbox authentication")
+            
+        # Initialize automated auth manager
+        self.auth_manager = DropboxAuthManager(self.project_id)
         
+        # Get authenticated Dropbox client
         try:
-            self.dbx = dropbox.Dropbox(self.access_token)
-            # Test connection
+            self.dbx = self.auth_manager.get_dropbox_client()
             self.account = self.dbx.users_get_current_account()
-            print(f"✅ Connected to Dropbox: {self.account.name.display_name}")
-        except AuthError as e:
-            raise Exception(f"Dropbox authentication failed: {e}")
+            print(f"✅ Dropbox handler initialized: {self.account.name.display_name}")
+        except Exception as e:
+            raise Exception(f"Failed to initialize Dropbox handler: {e}")
         
         # Ensure folder structure exists
         self._setup_folder_structure()
     
+    def _ensure_valid_client(self):
+        """Ensure we have a valid Dropbox client, refresh if needed"""
+        try:
+            # Test current client
+            self.dbx.users_get_current_account()
+        except AuthError as e:
+            if "expired" in str(e).lower():
+                print("🔄 Token expired, getting fresh client...")
+                self.dbx = self.auth_manager.get_dropbox_client()
+            else:
+                raise
     
     def _setup_folder_structure(self):
         """Create folder structure if it doesn't exist (within scoped folder)"""
@@ -239,10 +252,12 @@ Duration: {transcript_data.get('duration', 0)} seconds
     
     def get_folder_info(self) -> Dict[str, str]:
         """Get folder information for user reference"""
+        # Extract base folder from the raw folder path
+        base_folder = Config.RAW_FOLDER.split('/')[1] if Config.RAW_FOLDER.startswith('/') and len(Config.RAW_FOLDER.split('/')) > 1 else 'transcripts'
         return {
-            'scoped_folder': 'jos-transcripts',
-            'raw_folder': f"jos-transcripts{Config.RAW_FOLDER}",
-            'processed_folder': f"jos-transcripts{Config.PROCESSED_FOLDER}",
+            'scoped_folder': base_folder,
+            'raw_folder': Config.RAW_FOLDER,
+            'processed_folder': Config.PROCESSED_FOLDER,
             'account': self.account.name.display_name,
             'email': self.account.email
         }
