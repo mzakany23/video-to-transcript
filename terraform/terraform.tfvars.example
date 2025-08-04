@@ -1,14 +1,14 @@
-# Example Terraform variables for Dropbox transcription pipeline
+# Example terraform.tfvars file
 # Copy this to terraform.tfvars and fill in your values
 
-# Required: Your GCP project ID
 project_id = "your-gcp-project-id"
+region     = "us-east1"
 
-# Optional: GCP region (defaults to us-east1)
-region = "us-east1"
-
-# Required: Dropbox app access token (create at https://www.dropbox.com/developers/apps)
+# Dropbox credentials
 dropbox_access_token = "your-dropbox-access-token"
+dropbox_app_secret   = "your-dropbox-app-secret"
 
-# Required: Dropbox app secret for webhook verification
-dropbox_app_secret = "your-dropbox-app-secret"
+# Gmail notification settings
+gmail_address      = "your-email@gmail.com"
+gmail_app_password = "your-16-char-app-password"  # From Google App Passwords
+notification_email = "recipient@example.com"      # Email to receive notifications

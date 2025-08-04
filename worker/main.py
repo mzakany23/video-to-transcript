@@ -21,7 +21,7 @@ import ffmpeg
 # Import Dropbox handler from our src package
 sys.path.append('src')
 from transcripts.core.dropbox_handler import DropboxHandler
-from transcripts.core.notifications import NotificationService
+from transcripts.core.notifications import EmailNotificationService
 
 
 def main():
@@ -70,8 +70,8 @@ class TranscriptionJobProcessor:
         # Initialize Dropbox handler
         self.dropbox_handler = DropboxHandler()
         
-        # Initialize notification service
-        self.notification_service = NotificationService(self.project_id)
+        # Initialize email notification service
+        self.notification_service = EmailNotificationService(self.project_id)
         
         # Initialize Cloud Storage for job tracking persistence
         self.storage_client = storage.Client()
@@ -206,7 +206,7 @@ class TranscriptionJobProcessor:
             
             print(f"📊 Job completed: {processed_count}/{len(files_to_process)} files processed successfully")
             
-            # Send notification if any files were processed
+            # Send email notification if any files were processed
             if len(files_to_process) > 0:
                 job_summary = {
                     'processed_count': processed_count,

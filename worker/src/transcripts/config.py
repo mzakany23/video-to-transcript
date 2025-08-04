@@ -33,10 +33,10 @@ class Config:
     TRANSCRIPTION_JOB_NAME: str = os.environ.get("TRANSCRIPTION_JOB_NAME", "transcription-processor-dropbox")
     WEBHOOK_PORT: int = int(os.environ.get("PORT", "8080"))
     
-    # Twilio Configuration (for job completion notifications)
-    TWILIO_SECRET_NAME: str = os.environ.get("TWILIO_SECRET_NAME", "twilio-credentials")
-    NOTIFICATION_PHONE_NUMBER: str = os.environ.get("NOTIFICATION_PHONE_NUMBER", "")  # Format: +1AAABBBCCCC
-    ENABLE_SMS_NOTIFICATIONS: bool = os.environ.get("ENABLE_SMS_NOTIFICATIONS", "false").lower() == "true"
+    # Gmail Configuration (for email job completion notifications)
+    GMAIL_SECRET_NAME: str = os.environ.get("GMAIL_SECRET_NAME", "gmail-credentials")
+    NOTIFICATION_EMAIL: str = os.environ.get("NOTIFICATION_EMAIL", "")  # Email address to send notifications to
+    ENABLE_EMAIL_NOTIFICATIONS: bool = os.environ.get("ENABLE_EMAIL_NOTIFICATIONS", "false").lower() == "true"
     
     # File Processing Configuration
     MAX_FILE_SIZE_MB: int = 25  # OpenAI Whisper limit
