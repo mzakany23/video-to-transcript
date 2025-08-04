@@ -29,14 +29,22 @@ def main():
     # Initialize processor
     processor = TranscriptionJobProcessor()
     
-    # Check if triggered by webhook with specific file info
-    webhook_trigger = os.environ.get('WEBHOOK_TRIGGER', 'false').lower() == 'true'
+    # Check if processing a single specific file
+    single_file_mode = os.environ.get('PROCESS_SINGLE_FILE', 'false').lower() == 'true'
     
-    if webhook_trigger:
-        print("📧 Triggered by Dropbox webhook - processing new files")
-        processor.process_webhook_trigger()
+    if single_file_mode:
+        target_file_path = os.environ.get('TARGET_FILE_PATH')
+        target_file_name = os.environ.get('TARGET_FILE_NAME')
+        
+        if target_file_path and target_file_name:
+            print(f"🎯 Processing single file: {target_file_name}")
+            processor.process_single_file(target_file_path, target_file_name)
+        else:
+            print("❌ Single file mode enabled but missing TARGET_FILE_PATH or TARGET_FILE_NAME")
+            return
     else:
-        print("⏰ Scheduled/manual run - processing all pending files")
+        # Legacy mode - process all pending files
+        print("⏰ Processing all pending files")
         processor.process_pending_files()
     
     print("✅ Transcription job completed")
@@ -94,6 +102,32 @@ class TranscriptionJobProcessor:
         print("📥 Processing all pending files from Dropbox...")
         max_files = int(os.environ.get('MAX_FILES', '10'))  # Default 10 for scheduled runs
         self._process_dropbox_files(max_files=max_files)
+    
+    def process_single_file(self, file_path: str, file_name: str):
+        """Process a single specific file"""
+        print(f"🎯 Processing single file: {file_name} at {file_path}")
+        
+        try:
+            # Create file info structure
+            file_info = {
+                'id': file_path.replace('/', '_').replace(' ', '_'),
+                'name': file_name,
+                'path': file_path,
+                'size': 0,  # Will be determined during download
+                'modified': datetime.now().isoformat()
+            }
+            
+            # Process the file
+            result = self.process_file(file_info)
+            
+            if result.get('success'):
+                print(f"✅ Successfully processed: {file_name}")
+            else:
+                print(f"❌ Failed to process: {file_name} - {result.get('error')}")
+                
+        except Exception as e:
+            print(f"❌ Error processing single file {file_name}: {str(e)}")
+            raise
     
     def _process_dropbox_files(self, max_files: int = 10):
         """Core method to process files from Dropbox"""

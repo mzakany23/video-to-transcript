@@ -142,22 +142,32 @@ class DropboxHandler:
             return None
     
     def upload_transcript_results(self, transcript_data: Dict, original_file_name: str) -> Dict[str, Any]:
-        """Upload transcript results (JSON and TXT) to processed folder"""
+        """Upload transcript results with timestamp and filename-based folder structure"""
         base_name = Path(original_file_name).stem
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        now = datetime.now()
+        timestamp = now.strftime('%Y-%m-%d:%H:%M')  # e.g., "2025-08-04:15:30"
+        # Sanitize filename for folder name (remove special chars)
+        safe_filename = "".join(c for c in base_name if c.isalnum() or c in ('-', '_')).strip()
+        folder_name = f"{timestamp}-{safe_filename}"  # e.g., "2025-08-04:15:30-audio_file"
         results = {}
         
         try:
-            # Upload JSON file with detailed transcript data
-            json_filename = f"{timestamp}_{base_name}_transcript.json"
+            # Create timestamp+filename folder: processed/2025-08-04:15:30-audio_file/
+            processing_folder = f"{Config.PROCESSED_FOLDER}/{folder_name}"
+            
+            # Ensure folder exists
+            self._ensure_folder_exists(processing_folder)
+            
+            # Upload JSON file with simple naming
+            json_filename = f"{base_name}.json"
             json_content = json.dumps({
                 **transcript_data,
                 'original_file': original_file_name,
-                'processed_at': timestamp,
+                'processed_at': now.isoformat(),
                 'status': 'completed'
             }, indent=2, ensure_ascii=False)
             
-            json_path = f"{Config.PROCESSED_FOLDER}/{json_filename}"
+            json_path = f"{processing_folder}/{json_filename}"
             
             self.dbx.files_upload(
                 json_content.encode('utf-8'),
@@ -169,11 +179,11 @@ class DropboxHandler:
             results['json_filename'] = json_filename
             print(f"✅ Uploaded JSON: {json_filename}")
             
-            # Upload TXT file with readable transcript
-            txt_filename = f"{timestamp}_{base_name}_transcript.txt"
-            txt_content = self._format_transcript_text(transcript_data, original_file_name, timestamp)
+            # Upload TXT file with simple naming
+            txt_filename = f"{base_name}.txt"
+            txt_content = self._format_transcript_text(transcript_data, original_file_name, now.isoformat())
             
-            txt_path = f"{Config.PROCESSED_FOLDER}/{txt_filename}"
+            txt_path = f"{processing_folder}/{txt_filename}"
             
             self.dbx.files_upload(
                 txt_content.encode('utf-8'),
@@ -197,7 +207,7 @@ class DropboxHandler:
             except Exception as e:
                 print(f"⚠️ Could not create shareable links: {e}")
             
-            print(f"📁 Results uploaded to: {Config.PROCESSED_FOLDER}")
+            print(f"📁 Results uploaded to: {processing_folder}")
             return results
             
         except Exception as e:
@@ -240,3 +250,15 @@ Duration: {transcript_data.get('duration', 0)} seconds
     def is_audio_video_file(self, file_path: str) -> bool:
         """Check if file is supported audio/video format"""
         return Config.is_supported_format(file_path)
+    
+    def _ensure_folder_exists(self, folder_path: str):
+        """Ensure a folder exists in Dropbox, create if it doesn't"""
+        try:
+            self.dbx.files_create_folder_v2(folder_path)
+            print(f"✅ Created folder: {folder_path}")
+        except ApiError as e:
+            if e.error.is_path() and e.error.get_path().is_conflict():
+                # Folder already exists
+                pass
+            else:
+                print(f"⚠️ Error creating folder {folder_path}: {e}")
