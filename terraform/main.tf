@@ -198,6 +198,16 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
           value = google_secret_manager_secret.gmail_credentials.secret_id
         }
 
+        env {
+          name  = "DROPBOX_RAW_FOLDER"
+          value = "/jos-transcripts/raw"
+        }
+
+        env {
+          name  = "DROPBOX_PROCESSED_FOLDER"
+          value = "/jos-transcripts/processed"
+        }
+
         resources {
           limits = {
             cpu    = "2"
