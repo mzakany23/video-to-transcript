@@ -8,7 +8,7 @@ Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload f
 - **Multiple Formats**: Audio (mp3, wav, m4a) and video (mp4, mov, avi, webm)
 - **Serverless Architecture**: Scales automatically with Google Cloud Run
 - **Structured Output**: Both JSON (with timestamps) and plain text formats
-- **SMS Notifications**: Get text alerts when transcription jobs complete
+- **Email Notifications**: Get email alerts when transcription jobs complete
 
 ## Quick Start
 

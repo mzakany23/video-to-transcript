@@ -24,6 +24,22 @@ variable "dropbox_app_secret" {
   sensitive   = true
 }
 
+variable "gmail_address" {
+  description = "Gmail address for sending notifications"
+  type        = string
+}
+
+variable "gmail_app_password" {
+  description = "Gmail app password for SMTP authentication"
+  type        = string
+  sensitive   = true
+}
+
+variable "notification_emails" {
+  description = "List of email addresses to receive notifications"
+  type        = list(string)
+}
+
 # Enable required APIs
 resource "google_project_service" "required_apis" {
   for_each = toset([
@@ -85,6 +101,28 @@ resource "google_secret_manager_secret" "openai_key" {
   depends_on = [google_project_service.required_apis]
 }
 
+# Store Gmail credentials in Secret Manager
+resource "google_secret_manager_secret" "gmail_credentials" {
+  project   = var.project_id
+  secret_id = "gmail-credentials"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "gmail_credentials" {
+  secret = google_secret_manager_secret.gmail_credentials.id
+  secret_data = jsonencode({
+    email        = var.gmail_address
+    app_password = var.gmail_app_password
+    smtp_server  = "smtp.gmail.com"
+    smtp_port    = 587
+  })
+}
+
 # Service account for Cloud Run jobs
 resource "google_service_account" "transcription_service" {
   project      = var.project_id
@@ -143,6 +181,31 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
               version = "latest"
             }
           }
+        }
+
+        env {
+          name  = "ENABLE_EMAIL_NOTIFICATIONS"
+          value = "true"
+        }
+
+        env {
+          name  = "NOTIFICATION_EMAIL"
+          value = join(",", var.notification_emails)
+        }
+
+        env {
+          name  = "GMAIL_SECRET_NAME"
+          value = google_secret_manager_secret.gmail_credentials.secret_id
+        }
+
+        env {
+          name  = "DROPBOX_RAW_FOLDER"
+          value = "/jos-transcripts/raw"
+        }
+
+        env {
+          name  = "DROPBOX_PROCESSED_FOLDER"
+          value = "/jos-transcripts/processed"
         }
 
         resources {
@@ -208,9 +271,11 @@ resource "google_cloudfunctions2_function" "webhook_handler" {
     service_account_email = google_service_account.transcription_service.email
 
     environment_variables = {
-      PROJECT_ID      = var.project_id
-      GCP_REGION      = var.region
-      WORKER_JOB_NAME = google_cloud_run_v2_job.transcription_processor.name
+      PROJECT_ID               = var.project_id
+      GCP_REGION               = var.region
+      WORKER_JOB_NAME          = google_cloud_run_v2_job.transcription_processor.name
+      DROPBOX_RAW_FOLDER       = "/jos-transcripts/raw"
+      DROPBOX_PROCESSED_FOLDER = "/jos-transcripts/processed"
     }
 
     secret_environment_variables {
@@ -224,6 +289,20 @@ resource "google_cloudfunctions2_function" "webhook_handler" {
       key        = "DROPBOX_APP_SECRET"
       project_id = var.project_id
       secret     = google_secret_manager_secret.dropbox_secret.secret_id
+      version    = "latest"
+    }
+
+    secret_environment_variables {
+      key        = "DROPBOX_REFRESH_TOKEN"
+      project_id = var.project_id
+      secret     = "dropbox-refresh-token"
+      version    = "latest"
+    }
+
+    secret_environment_variables {
+      key        = "DROPBOX_APP_KEY"
+      project_id = var.project_id
+      secret     = "dropbox-app-key"
       version    = "latest"
     }
   }

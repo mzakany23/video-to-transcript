@@ -21,7 +21,7 @@ import ffmpeg
 # Import Dropbox handler from our src package
 sys.path.append('src')
 from transcripts.core.dropbox_handler import DropboxHandler
-from transcripts.core.notifications import NotificationService
+from transcripts.core.notifications import EmailNotificationService
 
 
 def main():
@@ -70,8 +70,8 @@ class TranscriptionJobProcessor:
         # Initialize Dropbox handler
         self.dropbox_handler = DropboxHandler()
         
-        # Initialize notification service
-        self.notification_service = NotificationService(self.project_id)
+        # Initialize email notification service
+        self.notification_service = EmailNotificationService(self.project_id)
         
         # Initialize Cloud Storage for job tracking persistence
         self.storage_client = storage.Client()
@@ -116,6 +116,8 @@ class TranscriptionJobProcessor:
     def process_single_file(self, file_path: str, file_name: str):
         """Process a single specific file"""
         print(f"🎯 Processing single file: {file_name} at {file_path}")
+        job_start_time = time.time()
+        failed_files = []
         
         try:
             # Create file info structure
@@ -132,11 +134,28 @@ class TranscriptionJobProcessor:
             
             if result.get('success'):
                 print(f"✅ Successfully processed: {file_name}")
+                processed_count = 1
             else:
                 print(f"❌ Failed to process: {file_name} - {result.get('error')}")
+                failed_files.append(file_name)
+                processed_count = 0
+            
+            # Calculate job duration
+            job_duration = time.time() - job_start_time
+            
+            # Send email notification for single file processing
+            job_summary = {
+                'processed_count': processed_count,
+                'total_count': 1,
+                'duration': job_duration,
+                'failed_files': failed_files
+            }
+            self.notification_service.send_job_completion(job_summary)
                 
         except Exception as e:
             print(f"❌ Error processing single file {file_name}: {str(e)}")
+            # Send error notification
+            self.notification_service.send_job_error(f"Single file processing failed for {file_name}: {str(e)}")
             raise
     
     def _process_dropbox_files(self, max_files: int = 10):
@@ -206,7 +225,7 @@ class TranscriptionJobProcessor:
             
             print(f"📊 Job completed: {processed_count}/{len(files_to_process)} files processed successfully")
             
-            # Send notification if any files were processed
+            # Send email notification if any files were processed
             if len(files_to_process) > 0:
                 job_summary = {
                     'processed_count': processed_count,
