@@ -92,7 +92,7 @@ To add more people to email notifications, simply add their email addresses to t
 ```hcl
 notification_emails = [
   "mzakany@gmail.com",
-  "colleague@company.com", 
+  "colleague@company.com",
   "manager@company.com",
   "team-lead@company.com"
 ]
