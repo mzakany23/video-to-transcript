@@ -48,8 +48,8 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  -p, --provider PROVIDER    Cloud provider (gcp, aws, azure) [default: gcp]"
-            echo "  -e, --environment ENV      Environment (development, staging, production) [default: production]"
+            echo "  -p, --provider PROVIDER    Cloud provider (gcp, docker) [default: gcp]"
+            echo "  -e, --environment ENV      Environment (dev, production) [default: production]"
             echo "  -t, --tag TAG             Docker image tag [default: latest]"
             echo "      --dry-run             Show what would be deployed without executing"
             echo "  -f, --force               Force deployment without prompts"
@@ -235,26 +235,20 @@ deploy_gcp() {
     show_deployment_status
 }
 
-# AWS deployment
+# AWS deployment (not implemented)
 deploy_aws() {
-    log_info "AWS deployment not yet implemented"
-    log_info "Future implementation will use ECS/Fargate"
-    
-    if [[ "$DRY_RUN" == false ]]; then
-        log_error "AWS deployment not available yet"
-        exit 1
-    fi
+    log_error "AWS deployment not implemented yet"
+    log_info "Currently only GCP and Docker are supported"
+    log_info "Use --provider gcp for cloud deployment or --provider docker for local"
+    exit 1
 }
 
-# Azure deployment
+# Azure deployment (not implemented)
 deploy_azure() {
-    log_info "Azure deployment not yet implemented"
-    log_info "Future implementation will use Container Instances/AKS"
-    
-    if [[ "$DRY_RUN" == false ]]; then
-        log_error "Azure deployment not available yet"
-        exit 1
-    fi
+    log_error "Azure deployment not implemented yet"
+    log_info "Currently only GCP and Docker are supported"
+    log_info "Use --provider gcp for cloud deployment or --provider docker for local"
+    exit 1
 }
 
 # Docker deployment (local production-like)

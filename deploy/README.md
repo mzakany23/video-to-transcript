@@ -13,9 +13,7 @@ deploy/
 │   ├── production/             # Production environment
 │   │   ├── docker-compose.yml  # Production Docker Compose config
 │   │   └── .env.template       # Production environment variables template
-│   ├── staging/               # Staging environment
-│   │   └── docker-compose.yml # Staging Docker Compose config
-│   └── development/           # Development environment
+│   └── dev/                   # Development environment
 │       └── docker-compose.yml # Development Docker Compose config
 ├── templates/                 # Configuration templates
 ├── configs/                   # Additional configuration files
@@ -31,17 +29,17 @@ deploy/
 make api-dev
 
 # Or using Docker Compose directly
-docker-compose -f deploy/env/development/docker-compose.yml up
+docker-compose -f deploy/env/dev/docker-compose.yml up
 ```
 
-### Staging Deployment
+### Development Deployment with Docker
 
 ```bash
-# Deploy to staging
-make deploy-staging
+# Deploy to development environment
+make deploy-dev
 
 # Or using the deployment script
-./deploy/scripts/deploy.sh --provider docker --environment staging
+./deploy/scripts/deploy.sh --provider docker --environment dev
 ```
 
 ### Production Deployment
@@ -66,13 +64,7 @@ make deploy-production
 - Debug logging enabled
 - Source code mounted for hot reload
 - Exposed ports for direct access
-
-### Staging
-- Mixed local/cloud providers
-- Reduced resource limits
-- INFO level logging
-- Closer to production setup
-- Used for testing before production
+- No authentication required
 
 ### Production
 - Cloud providers (GCS, Cloud Run)
@@ -89,12 +81,14 @@ make deploy-production
 ./deploy/scripts/deploy.sh [OPTIONS]
 
 Options:
-  -p, --provider PROVIDER    Cloud provider (gcp, aws, azure, docker)
-  -e, --environment ENV      Environment (development, staging, production)
-  -t, --tag TAG             Docker image tag
+  -p, --provider PROVIDER    Cloud provider (gcp, docker) [default: gcp]
+  -e, --environment ENV      Environment (dev, production) [default: production]
+  -t, --tag TAG             Docker image tag [default: latest]
       --dry-run             Show what would be deployed
   -f, --force               Force deployment without prompts
   -h, --help                Show help message
+
+Note: Currently only GCP and Docker are implemented. AWS and Azure support planned for future releases.
 ```
 
 ### Examples
@@ -103,8 +97,8 @@ Options:
 # Dry run production deployment
 ./deploy/scripts/deploy.sh --provider gcp --environment production --dry-run
 
-# Deploy to staging with specific tag
-./deploy/scripts/deploy.sh --provider docker --environment staging --tag v1.2.3
+# Deploy to development with specific tag
+./deploy/scripts/deploy.sh --provider docker --environment dev --tag v1.2.3
 
 # Force production deployment
 ./deploy/scripts/deploy.sh --provider gcp --environment production --force
@@ -249,11 +243,12 @@ docker-compose -f deploy/env/production/docker-compose.yml exec [service] sh
 - [ ] Auto-scaling policies
 - [ ] Multi-region deployments
 
-### Cloud-Specific Optimizations
+### Cloud Provider Support
 
-- **GCP**: Cloud Run, Cloud Build, Cloud Storage
-- **AWS**: ECS/Fargate, ECR, S3
-- **Azure**: Container Instances, ACR, Blob Storage
+- **GCP**: ✅ Implemented - Cloud Run, Cloud Build, Cloud Storage
+- **Docker**: ✅ Implemented - Local deployment with Docker Compose
+- **AWS**: 🚧 Planned - ECS/Fargate, ECR, S3
+- **Azure**: 🚧 Planned - Container Instances, ACR, Blob Storage
 
 ## Support
 

@@ -244,11 +244,14 @@ info: ## Show project information
 	@echo "$(BLUE)🌐 Cloud Provider Support:$(NC)"
 	@echo "$(GREEN)✅ Google Cloud Platform$(NC)"
 	@echo "  • Container Registry: gcr.io/$(PROJECT_ID)/"
-	@echo "  • Deploy command: make deploy-gcp"
-	@echo "$(YELLOW)⏳ AWS (Phase 3)$(NC)"
-	@echo "  • Deploy command: make deploy-aws"
-	@echo "$(YELLOW)⏳ Azure (Phase 3)$(NC)"  
-	@echo "  • Deploy command: make deploy-azure"
+	@echo "  • Deploy command: make deploy-production"
+	@echo "$(GREEN)✅ Docker$(NC)"
+	@echo "  • Local deployment with Docker Compose"
+	@echo "  • Deploy command: make deploy-dev"
+	@echo "$(YELLOW)🚧 AWS (Planned)$(NC)"
+	@echo "  • Future: ECS/Fargate deployment"
+	@echo "$(YELLOW)🚧 Azure (Planned)$(NC)"  
+	@echo "  • Future: Container Instances deployment"
 	@echo
 	@if [ -d ".venv" ]; then \
 		echo "$(YELLOW)Virtual Env:$(NC) ✅ Ready"; \
@@ -309,13 +312,9 @@ deploy-production: ## Deploy to production (requires environment variables)
 	@echo "$(YELLOW)🚀 Deploying to production$(NC)"
 	@./deploy/scripts/deploy.sh --provider gcp --environment production
 
-deploy-staging: ## Deploy to staging environment  
-	@echo "$(YELLOW)🚀 Deploying to staging$(NC)"
-	@./deploy/scripts/deploy.sh --provider docker --environment staging
-
-deploy-development: ## Deploy to development environment
+deploy-dev: ## Deploy to development environment
 	@echo "$(YELLOW)🚀 Deploying to development$(NC)"
-	@./deploy/scripts/deploy.sh --provider docker --environment development
+	@./deploy/scripts/deploy.sh --provider docker --environment dev
 
 deploy-dry-run: ## Show what would be deployed without executing
 	@echo "$(YELLOW)🔍 Dry run deployment$(NC)"
