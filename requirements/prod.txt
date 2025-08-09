@@ -1,0 +1,6 @@
+# Production dependencies for services
+openai>=1.0.0
+dropbox>=12.0.0
+google-cloud-secret-manager>=2.0.0
+google-cloud-storage>=2.0.0
+ffmpeg-python>=0.2.0

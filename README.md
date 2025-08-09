@@ -12,41 +12,52 @@ Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload f
 
 ## Quick Start
 
-1. **Deploy infrastructure**:
-   ```bash
-   cd terraform/
-   terraform init
-   terraform apply
-   ```
+```bash
+# Set up development environment
+make setup
 
-2. **Configure environment** (set in Cloud Run):
-   ```bash
-   export OPENAI_API_KEY="your_api_key_here"
-   export DROPBOX_APP_KEY="your_app_key" 
-   export DROPBOX_APP_SECRET="your_app_secret"
-   ```
+# Run tests
+make test
 
-3. **Upload files to Dropbox** → Transcripts appear automatically!
+# Build containers
+make build
+
+# Deploy to GCP (set PROJECT_ID first)
+export PROJECT_ID=your-project-id
+make deploy-gcp
+```
+
+**Traditional deployment:**
+1. Deploy infrastructure: `cd terraform/ && terraform apply`
+2. Configure environment variables in Cloud Run
+3. Upload files to Dropbox → Transcripts appear automatically!
 
 ## Development
 
-Each service is independently managed:
-
 ```bash
-# Webhook service
-cd webhook/
-uv sync
-uv run main.py
+# Set up environment
+make setup
+source .venv/bin/activate
 
-# Worker service  
-cd worker/
-uv sync
-uv run main.py
+# Run tests
+make test
 
-# CLI tools
-cd cli/
-uv sync
-uv run backfill.py
+# Format code
+make format
+
+# Run linting  
+make lint
+
+# Local testing
+make run-worker    # Test worker locally
+make run-webhook   # Test webhook locally
+```
+
+**Legacy service management** (still supported):
+```bash
+# Individual services
+cd webhook/ && uv sync && uv run main.py
+cd worker/ && uv sync && uv run main.py
 ```
 
 ## How It Works
@@ -68,7 +79,21 @@ uv run backfill.py
 **Services:**
 - **Webhook Service**: Receives Dropbox notifications → triggers jobs
 - **Worker Service**: Downloads files → transcribes → uploads results  
-- **Shared Library**: Common code used by both services
+- **Shared Library**: Modular services with pluggable providers
+
+## Available Commands
+
+```bash
+make help                # Show all available commands
+make setup              # Set up development environment
+make test               # Run tests with coverage
+make build              # Build Docker containers
+make test-containers    # Test container builds
+make deploy-gcp         # Deploy to Google Cloud Platform
+make deploy-aws         # Deploy to AWS (coming Phase 3)
+make deploy-azure       # Deploy to Azure (coming Phase 3)
+make clean              # Clean up Docker resources
+```
 
 ## Output Files
 
@@ -83,77 +108,96 @@ For each input file `meeting.mp4`, you get:
 
 ## Project Structure
 
-**Monorepo** - Each service is independently deployable:
+**Monorepo** with modular architecture:
 
 ```
 transcripts/
+├── Dockerfile                   # Multi-stage build for all services
+├── Makefile                     # Build, test, and deployment commands
+├── services/                    # 🔧 Modular services library
+│   ├── core/                   # Interfaces, models, logging
+│   ├── storage/                # Storage providers (Dropbox, GCS, etc.)
+│   └── transcription/          # Transcription providers (OpenAI, local)
 ├── webhook/                     # 🔔 Webhook service
-│   ├── pyproject.toml          # Lightweight dependencies
-│   └── main.py                 # Receives notifications
 ├── worker/                      # ⚙️  Worker service  
-│   ├── pyproject.toml          # Full transcription dependencies
-│   ├── src/transcripts/        # Core transcription logic
-│   ├── main.py                 # Processes files
-│   └── Dockerfile              # Container image
-├── cli/                         # 🛠️  CLI tools
-│   ├── pyproject.toml          # CLI dependencies
-│   └── backfill.py             # Process existing files
-├── templates/                   # 📄 Shared output templates
 ├── terraform/                   # 🏗️  Infrastructure as Code
-└── tests/                       # 🧪 Integration tests
+├── tests/                       # 🧪 Unit and integration tests
+└── requirements/                # 📦 Dependency management
 
 ## Deployment
 
-### Deploy Worker Changes
-
-1. **Build and push Docker image**:
-   ```bash
-   cd worker
-   gcloud builds submit --tag gcr.io/YOUR_PROJECT/transcription-worker:latest
-   ```
-
-2. **Update environment variables** (if needed):
-   ```bash
-   gcloud run jobs update transcription-worker \
-     --set-env-vars ENABLE_SMS_NOTIFICATIONS=true,NOTIFICATION_PHONE_NUMBER=+1XXXXXXXXXX \
-     --region us-east1 \
-     --project YOUR_PROJECT
-   ```
-
-3. **Test**: Drop a file in your Dropbox raw folder
-
-### Deploy Webhook Changes
+### Modern Deployment (Recommended)
 
 ```bash
-cd terraform
-gcloud functions deploy webhook-handler \
-  --source ../webhook \
-  --entry-point webhook_handler \
-  --runtime python311 \
-  --trigger-http \
-  --allow-unauthenticated \
-  --region us-east1
+# Set your GCP project
+export PROJECT_ID=your-gcp-project
+
+# Deploy to Google Cloud Platform  
+make deploy-gcp
+
+# Deploy to other clouds (when available)
+make deploy-aws        # Coming in Phase 3
+make deploy-azure      # Coming in Phase 3
+
+# Or step by step
+make build              # Build containers
+make push-gcp          # Push to Google Container Registry
 ```
+
+### Legacy Deployment (Still supported)
+
+```bash
+# Build and push worker
+cd worker
+gcloud builds submit --tag gcr.io/YOUR_PROJECT/transcription-worker:latest
+
+# Deploy webhook
+cd terraform  
+gcloud functions deploy webhook-handler --source ../webhook
+```
+
+## Migration Status
+
+- ✅ **Phase 1**: Architecture & API boundaries defined  
+- ✅ **Phase 2**: Core services extracted with feature flags
+- 🔄 **Phase 3**: Infrastructure abstraction (next)
+- ⏳ **Phase 4**: FastAPI service wrappers
+- ⏳ **Phase 5**: Full migration & cleanup
+
+## Feature Flags
+
+Set `USE_NEW_SERVICES=true` to enable the new modular architecture.
 
 ### Environment Variables
 
 **Worker Job**:
-- `ENABLE_SMS_NOTIFICATIONS`: Enable SMS alerts (true/false)
-- `NOTIFICATION_PHONE_NUMBER`: Phone for notifications
-- `TWILIO_SECRET_NAME`: Twilio credentials secret name
+- `USE_NEW_SERVICES`: Enable new modular services (true/false)
+- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+- `LOG_FORMAT`: Log format ('text' for dev, 'json' for prod)
 - `MAX_FILES`: Max files per job run
 
 **Webhook**:
 - `DROPBOX_APP_SECRET`: For webhook verification
 - `WORKER_JOB_NAME`: Cloud Run job to trigger
 
+## Documentation
+
+- [`docs/deployment.md`](docs/deployment.md) - Deployment guide
+- [`docs/logging.md`](docs/logging.md) - Logging strategy  
+- [`conversation/docs/`](conversation/docs/) - Architecture decisions
+
+For detailed migration progress, see [`conversation/docs/2.md`](conversation/docs/2.md).
+
 ### Monitoring
 
 ```bash
+# Show project info
+make info
+
 # View job runs
 gcloud run jobs executions list --job transcription-worker --region us-east1
 
-# View logs
+# View logs  
 gcloud logging read "resource.type=cloud_run_job" --limit 50
 ```
 

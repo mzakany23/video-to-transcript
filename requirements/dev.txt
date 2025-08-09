@@ -1,0 +1,17 @@
+# Development and testing dependencies
+# Install with: uv pip install -r requirements/dev.txt
+
+# Include production dependencies
+-r prod.txt
+
+# Testing framework
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+unittest-xml-reporting>=3.2.0
+
+# Development tools
+ruff>=0.1.0
+mypy>=1.0.0
+black>=23.0.0

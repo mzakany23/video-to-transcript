@@ -73,3 +73,4 @@ webhook_info.json
 
 # Test files
 test_*.py
+.claude

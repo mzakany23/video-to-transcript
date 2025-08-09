@@ -28,8 +28,16 @@ def main():
     """Main entry point for Cloud Run Job"""
     print("🚀 Starting transcription processing job...")
     
-    # Initialize processor
-    processor = TranscriptionJobProcessor()
+    # FEATURE FLAG: Use new modular services
+    use_new_services = os.environ.get('USE_NEW_SERVICES', 'false').lower() == 'true'
+    
+    if use_new_services:
+        print("🔄 Using NEW modular services architecture")
+        from legacy_adapter import LegacyTranscriptionAdapter
+        processor = LegacyTranscriptionAdapter()
+    else:
+        print("📦 Using LEGACY monolithic processor")
+        processor = TranscriptionJobProcessor()
     
     # Check if processing a single specific file
     single_file_mode = os.environ.get('PROCESS_SINGLE_FILE', 'false').lower() == 'true'
