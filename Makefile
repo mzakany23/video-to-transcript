@@ -260,3 +260,46 @@ info: ## Show project information
 	else \
 		echo "$(YELLOW)Docker:$(NC) ❌ Not found"; \
 	fi
+
+## API Services
+api-dev: ## Start API services in development mode
+	@echo "$(YELLOW)🚀 Starting API services in development mode$(NC)"
+	@echo "$(BLUE)Services starting on:$(NC)"
+	@echo "  • Gateway:        http://localhost:8000"
+	@echo "  • Transcription:  http://localhost:8001"  
+	@echo "  • Webhook:        http://localhost:8002"
+	@echo "  • Orchestration:  http://localhost:8003"
+	@echo
+	uv run uvicorn api.transcription-api.main:app --reload --host 0.0.0.0 --port 8001 &
+	uv run uvicorn api.webhook-api.main:app --reload --host 0.0.0.0 --port 8002 &
+	uv run uvicorn api.orchestration-api.main:app --reload --host 0.0.0.0 --port 8003 &
+	uv run uvicorn api.gateway.main:app --reload --host 0.0.0.0 --port 8000
+
+api-docker: ## Start API services with Docker Compose
+	@echo "$(YELLOW)🐳 Starting API services with Docker Compose$(NC)"
+	@echo "$(BLUE)Services will be available at:$(NC)"
+	@echo "  • Gateway:        http://localhost:8000"
+	@echo "  • Transcription:  http://localhost:8001"
+	@echo "  • Webhook:        http://localhost:8002"
+	@echo "  • Orchestration:  http://localhost:8003"
+	@echo
+	docker-compose -f docker-compose.api.yml up --build
+
+api-docker-stop: ## Stop API services
+	@echo "$(YELLOW)🛑 Stopping API services$(NC)"
+	docker-compose -f docker-compose.api.yml down
+
+api-docker-logs: ## Show API service logs
+	@echo "$(YELLOW)📋 Showing API service logs$(NC)"
+	docker-compose -f docker-compose.api.yml logs -f
+
+api-health: ## Check health of all API services
+	@echo "$(YELLOW)🏥 Checking API service health$(NC)"
+	@echo "$(BLUE)Gateway Health:$(NC)"
+	@curl -s http://localhost:8000/health | jq . || echo "Gateway not responding"
+	@echo "$(BLUE)Transcription Health:$(NC)"
+	@curl -s http://localhost:8001/health | jq . || echo "Transcription API not responding"
+	@echo "$(BLUE)Webhook Health:$(NC)"
+	@curl -s http://localhost:8002/health | jq . || echo "Webhook API not responding"
+	@echo "$(BLUE)Orchestration Health:$(NC)"
+	@curl -s http://localhost:8003/health | jq . || echo "Orchestration API not responding"

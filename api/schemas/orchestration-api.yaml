@@ -1,0 +1,945 @@
+openapi: 3.0.3
+info:
+  title: Orchestration API
+  description: |
+    REST API for job orchestration and management across different execution environments.
+    
+    Features:
+    - Multi-provider job execution (Cloud Run, local, Airflow, etc.)
+    - Job lifecycle management (submit, monitor, cancel)
+    - Batch job operations with concurrency control
+    - Real-time job status and progress tracking
+    - Job logs and result retrieval
+    - Provider management and switching
+    
+  version: 0.1.0
+  contact:
+    name: Orchestration Service
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8003
+    description: Development server
+  - url: https://orchestration-api.example.com
+    description: Production server
+
+tags:
+  - name: jobs
+    description: Job management operations
+  - name: batch
+    description: Batch job operations
+  - name: runners
+    description: Job runner management
+  - name: health
+    description: Service health and monitoring
+
+paths:
+  # Health and Status
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      description: Check if the orchestration service is healthy
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /status:
+    get:
+      tags: [health]
+      summary: Detailed service status
+      description: Get detailed information about orchestration service and runners
+      operationId: getStatus
+      responses:
+        '200':
+          description: Detailed service status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrchestrationServiceStatus'
+
+  # Job Management
+  /jobs:
+    post:
+      tags: [jobs]
+      summary: Submit job
+      description: Submit a new job for execution
+      operationId: submitJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobSubmissionRequest'
+      responses:
+        '202':
+          description: Job submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobSubmissionResponse'
+        '400':
+          description: Invalid job specification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Job runner unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags: [jobs]
+      summary: List jobs
+      description: List jobs with filtering and pagination
+      operationId: listJobs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobState'
+          description: Filter by job status
+        - name: job_type
+          in: query
+          schema:
+            type: string
+          description: Filter by job type
+        - name: runner
+          in: query
+          schema:
+            type: string
+          description: Filter by job runner
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          description: Maximum number of jobs to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Number of jobs to skip
+        - name: order_by
+          in: query
+          schema:
+            type: string
+            enum: [created_at, started_at, completed_at]
+            default: created_at
+          description: Field to order by
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Order direction
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobList'
+
+  /jobs/{jobId}:
+    get:
+      tags: [jobs]
+      summary: Get job details
+      description: Get detailed information about a specific job
+      operationId: getJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobDetails'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [jobs]
+      summary: Cancel job
+      description: Cancel a running job
+      operationId: cancelJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+      responses:
+        '200':
+          description: Job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCancellationResponse'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Job cannot be cancelled (already completed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{jobId}/status:
+    get:
+      tags: [jobs]
+      summary: Get job status
+      description: Get current status and progress of a job
+      operationId: getJobStatus
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{jobId}/logs:
+    get:
+      tags: [jobs]
+      summary: Get job logs
+      description: Get execution logs for a job
+      operationId: getJobLogs
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+        - name: lines
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+          description: Number of log lines to return
+        - name: follow
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Stream logs in real-time (WebSocket)
+      responses:
+        '200':
+          description: Job logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobLogs'
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{jobId}/wait:
+    post:
+      tags: [jobs]
+      summary: Wait for job completion
+      description: Wait for a job to complete with timeout
+      operationId: waitForJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeout_seconds:
+                  type: integer
+                  default: 3600
+                  minimum: 1
+                  maximum: 86400
+                  description: Maximum time to wait in seconds
+                poll_interval:
+                  type: integer
+                  default: 30
+                  minimum: 1
+                  maximum: 300
+                  description: Polling interval in seconds
+      responses:
+        '200':
+          description: Job completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobDetails'
+        '408':
+          description: Timeout waiting for job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Batch Operations
+  /jobs/batch:
+    post:
+      tags: [batch]
+      summary: Submit batch jobs
+      description: Submit multiple jobs with concurrency control
+      operationId: submitBatchJobs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchJobSubmissionRequest'
+      responses:
+        '202':
+          description: Batch jobs submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobSubmissionResponse'
+        '400':
+          description: Invalid batch request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/batch/{batchId}:
+    get:
+      tags: [batch]
+      summary: Get batch status
+      description: Get status of all jobs in a batch
+      operationId: getBatchStatus
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Batch identifier
+      responses:
+        '200':
+          description: Batch status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobStatus'
+        '404':
+          description: Batch not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [batch]
+      summary: Cancel batch jobs
+      description: Cancel all jobs in a batch
+      operationId: cancelBatchJobs
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Batch identifier
+      responses:
+        '200':
+          description: Batch jobs cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCancellationResponse'
+        '404':
+          description: Batch not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Job Runner Management
+  /runners:
+    get:
+      tags: [runners]
+      summary: List job runners
+      description: Get information about available job runners
+      operationId: listRunners
+      responses:
+        '200':
+          description: Available job runners
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunnerList'
+
+  /runners/current:
+    get:
+      tags: [runners]
+      summary: Get current runner
+      description: Get information about the currently active job runner
+      operationId: getCurrentRunner
+      responses:
+        '200':
+          description: Current job runner information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunnerInfo'
+
+  /runners/{runnerId}/validate:
+    post:
+      tags: [runners]
+      summary: Validate runner
+      description: Test if a job runner is properly configured and accessible
+      operationId: validateRunner
+      parameters:
+        - name: runnerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Runner identifier
+      responses:
+        '200':
+          description: Runner validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunnerValidation'
+
+  /runners/{runnerId}/jobs:
+    get:
+      tags: [runners]
+      summary: List runner jobs
+      description: List jobs running on a specific runner
+      operationId: listRunnerJobs
+      parameters:
+        - name: runnerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Runner identifier
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobState'
+          description: Filter by job status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          description: Maximum number of jobs to return
+      responses:
+        '200':
+          description: Jobs on runner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobList'
+        '404':
+          description: Runner not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    # Health and Status
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+      required: [status, timestamp, version]
+
+    OrchestrationServiceStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        configuration:
+          type: object
+          properties:
+            job_runner:
+              type: string
+            environment:
+              type: string
+        statistics:
+          type: object
+          properties:
+            active_jobs:
+              type: integer
+            completed_jobs:
+              type: integer
+            failed_jobs:
+              type: integer
+            total_jobs:
+              type: integer
+        runner_info:
+          $ref: '#/components/schemas/RunnerInfo'
+      required: [status, version, timestamp]
+
+    # Job Management
+    JobState:
+      type: string
+      enum: [pending, running, completed, failed, cancelled]
+
+    ResourceRequirements:
+      type: object
+      properties:
+        cpu:
+          type: string
+          default: "1"
+          description: CPU allocation (e.g., "1", "2", "0.5")
+        memory:
+          type: string
+          default: "2Gi"
+          description: Memory allocation (e.g., "1Gi", "512Mi")
+        timeout_seconds:
+          type: integer
+          default: 3600
+          minimum: 1
+          maximum: 86400
+          description: Job timeout in seconds
+
+    JobSubmissionRequest:
+      type: object
+      properties:
+        job_type:
+          type: string
+          description: Type of job to execute
+        input_data:
+          type: object
+          additionalProperties: true
+          description: Input data for the job
+        environment:
+          type: object
+          additionalProperties:
+            type: string
+          description: Environment variables for the job
+        resources:
+          $ref: '#/components/schemas/ResourceRequirements'
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional job metadata
+        runner:
+          type: string
+          description: Specific runner to use (optional)
+      required: [job_type, input_data]
+
+    JobSubmissionResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobState'
+        submitted_at:
+          type: string
+          format: date-time
+        runner:
+          type: string
+        estimated_duration:
+          type: number
+          description: Estimated processing time in seconds
+      required: [job_id, status, submitted_at, runner]
+
+    JobDetails:
+      type: object
+      properties:
+        job_id:
+          type: string
+        job_type:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobState'
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Job progress percentage
+        input_data:
+          type: object
+          additionalProperties: true
+        environment:
+          type: object
+          additionalProperties:
+            type: string
+        resources:
+          $ref: '#/components/schemas/ResourceRequirements'
+        runner:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        duration:
+          type: number
+          description: Job duration in seconds
+        result:
+          type: object
+          additionalProperties: true
+          description: Job result data
+        error:
+          type: string
+          description: Error message if job failed
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [job_id, job_type, status, runner, created_at]
+
+    JobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobState'
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        error:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [job_id, status]
+
+    JobList:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobDetails'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+      required: [jobs, total, limit, offset, has_more]
+
+    JobLogs:
+      type: object
+      properties:
+        job_id:
+          type: string
+        logs:
+          type: array
+          items:
+            type: string
+        total_lines:
+          type: integer
+        truncated:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+      required: [job_id, logs, timestamp]
+
+    JobCancellationResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobState'
+        cancelled_at:
+          type: string
+          format: date-time
+        message:
+          type: string
+      required: [job_id, status, cancelled_at]
+
+    # Batch Operations
+    BatchJobSubmissionRequest:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobSubmissionRequest'
+          minItems: 1
+          maxItems: 100
+        max_concurrent:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 20
+          description: Maximum number of concurrent jobs
+        batch_metadata:
+          type: object
+          additionalProperties: true
+          description: Metadata for the entire batch
+      required: [jobs]
+
+    BatchJobSubmissionResponse:
+      type: object
+      properties:
+        batch_id:
+          type: string
+        job_ids:
+          type: array
+          items:
+            type: string
+        successful_submissions:
+          type: integer
+        failed_submissions:
+          type: integer
+        total_jobs:
+          type: integer
+        submitted_at:
+          type: string
+          format: date-time
+      required: [batch_id, job_ids, successful_submissions, failed_submissions, total_jobs, submitted_at]
+
+    BatchJobStatus:
+      type: object
+      properties:
+        batch_id:
+          type: string
+        total_jobs:
+          type: integer
+        pending_jobs:
+          type: integer
+        running_jobs:
+          type: integer
+        completed_jobs:
+          type: integer
+        failed_jobs:
+          type: integer
+        cancelled_jobs:
+          type: integer
+        overall_progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Overall batch progress percentage
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobStatus'
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+      required: [batch_id, total_jobs, pending_jobs, running_jobs, completed_jobs, failed_jobs, cancelled_jobs, jobs, created_at]
+
+    BatchCancellationResponse:
+      type: object
+      properties:
+        batch_id:
+          type: string
+        cancelled_jobs:
+          type: integer
+        already_completed:
+          type: integer
+        total_jobs:
+          type: integer
+        cancelled_at:
+          type: string
+          format: date-time
+        message:
+          type: string
+      required: [batch_id, cancelled_jobs, already_completed, total_jobs, cancelled_at]
+
+    # Job Runner Management
+    RunnerList:
+      type: object
+      properties:
+        runners:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunnerInfo'
+        current_runner:
+          type: string
+          description: ID of currently active runner
+      required: [runners, current_runner]
+
+    RunnerInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          description: Runner type (cloudrun, local, airflow, etc.)
+        enabled:
+          type: boolean
+        available:
+          type: boolean
+        active_jobs:
+          type: integer
+        capabilities:
+          type: object
+          additionalProperties:
+            type: boolean
+          description: Supported capabilities
+        configuration:
+          type: object
+          additionalProperties: true
+          description: Runner-specific configuration
+        statistics:
+          type: object
+          properties:
+            total_jobs:
+              type: integer
+            successful_jobs:
+              type: integer
+            failed_jobs:
+              type: integer
+            average_duration:
+              type: number
+              description: Average job duration in seconds
+      required: [id, name, type, enabled, available, active_jobs, capabilities]
+
+    RunnerValidation:
+      type: object
+      properties:
+        runner_id:
+          type: string
+        valid:
+          type: boolean
+        available:
+          type: boolean
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+          description: Detailed validation results
+        tested_at:
+          type: string
+          format: date-time
+      required: [runner_id, valid, available, message, tested_at]
+
+    # Error Handling
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+      required: [error, timestamp]
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

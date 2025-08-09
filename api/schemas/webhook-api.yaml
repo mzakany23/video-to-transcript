@@ -1,0 +1,924 @@
+openapi: 3.0.3
+info:
+  title: Webhook API
+  description: |
+    REST API for webhook processing and external service notifications.
+    
+    Features:
+    - Webhook endpoint registration and management
+    - External service notification processing (Dropbox, etc.)
+    - Cursor-based change tracking
+    - Duplicate job prevention
+    - Admin operations for webhook management
+    
+  version: 0.1.0
+  contact:
+    name: Webhook Service
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8002
+    description: Development server
+  - url: https://webhook-api.example.com
+    description: Production server
+
+tags:
+  - name: webhooks
+    description: Webhook processing endpoints
+  - name: cursors
+    description: Cursor management for change tracking
+  - name: tracking
+    description: Job tracking and duplicate prevention
+  - name: admin
+    description: Administrative operations
+  - name: health
+    description: Service health and status
+
+paths:
+  # Health and Status
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      description: Check if the webhook service is healthy
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /status:
+    get:
+      tags: [health]
+      summary: Detailed service status
+      description: Get detailed information about webhook service and processing statistics
+      operationId: getStatus
+      responses:
+        '200':
+          description: Detailed service status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookServiceStatus'
+
+  # Webhook Processing
+  /webhooks/dropbox:
+    post:
+      tags: [webhooks]
+      summary: Process Dropbox webhook
+      description: Handle Dropbox webhook notifications for file changes
+      operationId: processDropboxWebhook
+      parameters:
+        - name: X-Dropbox-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Dropbox signature for verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DropboxWebhookPayload'
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookProcessingResult'
+        '400':
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags: [webhooks]
+      summary: Dropbox webhook verification
+      description: Handle Dropbox webhook verification challenge
+      operationId: verifyDropboxWebhook
+      parameters:
+        - name: challenge
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Dropbox verification challenge
+      responses:
+        '200':
+          description: Challenge response
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /webhooks/manual/process:
+    post:
+      tags: [webhooks]
+      summary: Manual webhook processing
+      description: Manually trigger webhook processing for testing or recovery
+      operationId: processManualWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualWebhookRequest'
+      responses:
+        '200':
+          description: Manual processing completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookProcessingResult'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Cursor Management
+  /cursors:
+    get:
+      tags: [cursors]
+      summary: List cursors
+      description: Get all stored cursors for change tracking
+      operationId: listCursors
+      responses:
+        '200':
+          description: List of cursors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorList'
+
+    delete:
+      tags: [cursors]
+      summary: Reset all cursors
+      description: Delete all cursors to force full rescan on next webhook
+      operationId: resetAllCursors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirm:
+                  type: boolean
+                  description: Must be true to confirm reset
+              required: [confirm]
+      responses:
+        '200':
+          description: Cursors reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorResetResponse'
+        '400':
+          description: Confirmation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cursors/{path}:
+    get:
+      tags: [cursors]
+      summary: Get cursor
+      description: Get cursor for a specific path
+      operationId: getCursor
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Path to get cursor for
+      responses:
+        '200':
+          description: Cursor information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorInfo'
+        '404':
+          description: Cursor not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags: [cursors]
+      summary: Set cursor
+      description: Set or update cursor for a specific path
+      operationId: setCursor
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Path to set cursor for
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cursor:
+                  type: string
+                  description: Cursor value
+              required: [cursor]
+      responses:
+        '200':
+          description: Cursor set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorInfo'
+
+    delete:
+      tags: [cursors]
+      summary: Delete cursor
+      description: Delete cursor for a specific path
+      operationId: deleteCursor
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Path to delete cursor for
+      responses:
+        '200':
+          description: Cursor deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                  path:
+                    type: string
+        '404':
+          description: Cursor not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Job Tracking
+  /tracking:
+    get:
+      tags: [tracking]
+      summary: Get tracking info
+      description: Get information about job tracking status
+      operationId: getTrackingInfo
+      responses:
+        '200':
+          description: Job tracking information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingInfo'
+
+  /tracking/processed:
+    get:
+      tags: [tracking]
+      summary: List processed files
+      description: Get list of files that have been processed
+      operationId: listProcessedFiles
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          description: Maximum number of files to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Number of files to skip
+      responses:
+        '200':
+          description: List of processed files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessedFileList'
+
+    delete:
+      tags: [tracking]
+      summary: Reset job tracking
+      description: Clear all job tracking records
+      operationId: resetJobTracking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirm:
+                  type: boolean
+                  description: Must be true to confirm reset
+              required: [confirm]
+      responses:
+        '200':
+          description: Job tracking reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingResetResponse'
+        '400':
+          description: Confirmation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tracking/processed/{fileId}:
+    get:
+      tags: [tracking]
+      summary: Check if file is processed
+      description: Check if a specific file has been processed
+      operationId: isFileProcessed
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: File identifier to check
+      responses:
+        '200':
+          description: File processing status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileProcessingStatus'
+
+    post:
+      tags: [tracking]
+      summary: Mark file as processed
+      description: Manually mark a file as processed
+      operationId: markFileProcessed
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: File identifier to mark
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkProcessedRequest'
+      responses:
+        '200':
+          description: File marked as processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileProcessingStatus'
+
+    delete:
+      tags: [tracking]
+      summary: Remove processed record
+      description: Remove a file from processed tracking
+      operationId: removeProcessedRecord
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: File identifier to remove
+      responses:
+        '200':
+          description: Record removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: boolean
+                  file_id:
+                    type: string
+        '404':
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Administrative Operations
+  /admin/validate:
+    post:
+      tags: [admin]
+      summary: Validate configuration
+      description: Validate webhook service configuration and providers
+      operationId: validateConfiguration
+      responses:
+        '200':
+          description: Configuration validation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationValidation'
+
+  /admin/reset:
+    post:
+      tags: [admin]
+      summary: Reset webhook state
+      description: Reset all webhook processing state (cursors and tracking)
+      operationId: resetWebhookState
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirm:
+                  type: boolean
+                  description: Must be true to confirm reset
+                reset_cursors:
+                  type: boolean
+                  default: true
+                reset_tracking:
+                  type: boolean
+                  default: true
+              required: [confirm]
+      responses:
+        '200':
+          description: Webhook state reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResetResponse'
+        '400':
+          description: Invalid request or confirmation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/statistics:
+    get:
+      tags: [admin]
+      summary: Get detailed statistics
+      description: Get comprehensive webhook processing statistics
+      operationId: getWebhookStatistics
+      responses:
+        '200':
+          description: Detailed webhook statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookStatistics'
+
+  /admin/cleanup:
+    post:
+      tags: [admin]
+      summary: Cleanup old records
+      description: Clean up old processing records
+      operationId: cleanupOldRecords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                days_old:
+                  type: integer
+                  default: 30
+                  minimum: 1
+                  description: Remove records older than this many days
+                dry_run:
+                  type: boolean
+                  default: false
+                  description: If true, don't actually delete, just report what would be deleted
+      responses:
+        '200':
+          description: Cleanup results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CleanupResponse'
+
+components:
+  schemas:
+    # Health and Status
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+      required: [status, timestamp, version]
+
+    WebhookServiceStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        configuration:
+          type: object
+          properties:
+            storage_provider:
+              type: string
+            job_runner:
+              type: string
+            supported_formats:
+              type: array
+              items:
+                type: string
+        statistics:
+          $ref: '#/components/schemas/WebhookStatistics'
+        providers:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              available:
+                type: boolean
+              error:
+                type: string
+      required: [status, version, timestamp]
+
+    # Webhook Processing
+    DropboxWebhookPayload:
+      type: object
+      properties:
+        list_folder:
+          type: object
+          properties:
+            accounts:
+              type: array
+              items:
+                type: string
+        delta:
+          type: object
+          properties:
+            users:
+              type: array
+              items:
+                type: string
+      additionalProperties: true
+
+    ManualWebhookRequest:
+      type: object
+      properties:
+        handler_type:
+          type: string
+          enum: [dropbox]
+          default: dropbox
+        payload:
+          type: object
+          additionalProperties: true
+        simulate:
+          type: boolean
+          default: false
+          description: If true, simulate processing without triggering actual jobs
+      required: [payload]
+
+    WebhookProcessingResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        files_processed:
+          type: integer
+        jobs_triggered:
+          type: integer
+        job_results:
+          type: array
+          items:
+            type: object
+            properties:
+              success:
+                type: boolean
+              file_name:
+                type: string
+              job_id:
+                type: string
+              error:
+                type: string
+        timestamp:
+          type: string
+          format: date-time
+      required: [success, message, files_processed, jobs_triggered, timestamp]
+
+    # Cursor Management
+    CursorList:
+      type: object
+      properties:
+        cursors:
+          type: object
+          additionalProperties:
+            type: string
+        count:
+          type: integer
+        last_updated:
+          type: string
+          format: date-time
+      required: [cursors, count]
+
+    CursorInfo:
+      type: object
+      properties:
+        path:
+          type: string
+        cursor:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+      required: [path, cursor]
+
+    CursorResetResponse:
+      type: object
+      properties:
+        reset:
+          type: boolean
+        message:
+          type: string
+        cursors_removed:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+      required: [reset, message, cursors_removed, timestamp]
+
+    # Job Tracking
+    TrackingInfo:
+      type: object
+      properties:
+        processed_count:
+          type: integer
+        last_cleanup:
+          type: string
+          format: date-time
+        reset_at:
+          type: string
+          format: date-time
+        storage_provider:
+          type: string
+        tracking_file:
+          type: string
+      required: [processed_count, storage_provider, tracking_file]
+
+    ProcessedFileList:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessedFileRecord'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+      required: [files, total, limit, offset, has_more]
+
+    ProcessedFileRecord:
+      type: object
+      properties:
+        file_id:
+          type: string
+        processed_at:
+          type: string
+          format: date-time
+        job_id:
+          type: string
+        file_info:
+          type: object
+          properties:
+            name:
+              type: string
+            path:
+              type: string
+            size:
+              type: integer
+            modified:
+              type: string
+              format: date-time
+      required: [file_id, processed_at]
+
+    FileProcessingStatus:
+      type: object
+      properties:
+        file_id:
+          type: string
+        is_processed:
+          type: boolean
+        processed_at:
+          type: string
+          format: date-time
+        job_id:
+          type: string
+        file_info:
+          type: object
+          additionalProperties: true
+      required: [file_id, is_processed]
+
+    MarkProcessedRequest:
+      type: object
+      properties:
+        job_id:
+          type: string
+          description: Job ID that processed this file
+        file_info:
+          type: object
+          additionalProperties: true
+          description: Additional file information
+
+    TrackingResetResponse:
+      type: object
+      properties:
+        reset:
+          type: boolean
+        message:
+          type: string
+        records_removed:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+      required: [reset, message, records_removed, timestamp]
+
+    # Administrative
+    ConfigurationValidation:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        provider_status:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+                enum: [valid, error]
+              error:
+                type: string
+      required: [valid, errors, warnings, provider_status]
+
+    WebhookResetResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        cursors_reset:
+          type: boolean
+        tracking_reset:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+      required: [success, message, timestamp]
+
+    WebhookStatistics:
+      type: object
+      properties:
+        processed_files:
+          type: integer
+        total_webhooks:
+          type: integer
+        successful_webhooks:
+          type: integer
+        failed_webhooks:
+          type: integer
+        active_cursors:
+          type: integer
+        supported_formats:
+          type: array
+          items:
+            type: string
+        orchestration:
+          type: object
+          properties:
+            runner_type:
+              type: string
+            active_jobs:
+              type: integer
+            capabilities:
+              type: object
+              additionalProperties:
+                type: boolean
+      required: [processed_files, active_cursors, supported_formats]
+
+    CleanupResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        records_removed:
+          type: integer
+        records_would_remove:
+          type: integer
+        dry_run:
+          type: boolean
+        cutoff_date:
+          type: string
+          format: date-time
+        timestamp:
+          type: string
+          format: date-time
+      required: [success, message, dry_run, timestamp]
+
+    # Error Handling
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+      required: [error, timestamp]
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

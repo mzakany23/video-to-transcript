@@ -1,0 +1,727 @@
+openapi: 3.0.3
+info:
+  title: Transcription API
+  description: |
+    REST API for transcription services supporting multiple providers and formats.
+    
+    Features:
+    - Multiple transcription providers (OpenAI Whisper, etc.)
+    - Async job processing with status tracking
+    - File upload and download management
+    - Batch operations for multiple files
+    
+  version: 0.1.0
+  contact:
+    name: Transcription Service
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8001
+    description: Development server
+  - url: https://transcription-api.example.com
+    description: Production server
+
+tags:
+  - name: transcription
+    description: Core transcription operations
+  - name: jobs
+    description: Job management and status
+  - name: providers
+    description: Provider management
+  - name: health
+    description: Service health and status
+
+paths:
+  # Health and Status
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      description: Check if the transcription service is healthy
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /status:
+    get:
+      tags: [health]
+      summary: Detailed service status
+      description: Get detailed information about service configuration and providers
+      operationId: getStatus
+      responses:
+        '200':
+          description: Detailed service status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatus'
+
+  # Transcription Operations
+  /transcribe:
+    post:
+      tags: [transcription]
+      summary: Transcribe audio file
+      description: Submit an audio file for transcription
+      operationId: transcribeFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Audio file to transcribe
+                options:
+                  $ref: '#/components/schemas/TranscriptionOptions'
+              required: [file]
+      responses:
+        '202':
+          description: Transcription job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transcribe/url:
+    post:
+      tags: [transcription]
+      summary: Transcribe from URL
+      description: Submit a file URL for transcription
+      operationId: transcribeFromUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranscribeUrlRequest'
+      responses:
+        '202':
+          description: Transcription job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transcribe/batch:
+    post:
+      tags: [transcription]
+      summary: Batch transcribe multiple files
+      description: Submit multiple files for batch transcription
+      operationId: transcribeBatch
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                options:
+                  $ref: '#/components/schemas/TranscriptionOptions'
+              required: [files]
+      responses:
+        '202':
+          description: Batch transcription jobs created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Job Management
+  /jobs/{jobId}:
+    get:
+      tags: [jobs]
+      summary: Get job status
+      description: Get the current status and result of a transcription job
+      operationId: getJobStatus
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+      responses:
+        '200':
+          description: Job status and result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [jobs]
+      summary: Cancel job
+      description: Cancel a running transcription job
+      operationId: cancelJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+      responses:
+        '200':
+          description: Job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelResponse'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{jobId}/result:
+    get:
+      tags: [jobs]
+      summary: Download job result
+      description: Download the transcription result in various formats
+      operationId: downloadJobResult
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, txt, srt, vtt]
+            default: json
+          description: Result format
+      responses:
+        '200':
+          description: Transcription result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptionResult'
+            text/plain:
+              schema:
+                type: string
+            application/x-subrip:
+              schema:
+                type: string
+            text/vtt:
+              schema:
+                type: string
+        '404':
+          description: Job not found or not completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs/{jobId}/logs:
+    get:
+      tags: [jobs]
+      summary: Get job logs
+      description: Get execution logs for a transcription job
+      operationId: getJobLogs
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier
+        - name: lines
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+          description: Number of log lines to return
+      responses:
+        '200':
+          description: Job logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobLogs'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jobs:
+    get:
+      tags: [jobs]
+      summary: List jobs
+      description: List transcription jobs with filtering and pagination
+      operationId: listJobs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobState'
+          description: Filter by job status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          description: Maximum number of jobs to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Number of jobs to skip
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobList'
+
+  # Provider Management
+  /providers:
+    get:
+      tags: [providers]
+      summary: List providers
+      description: Get information about available transcription providers
+      operationId: listProviders
+      responses:
+        '200':
+          description: Available providers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderList'
+
+  /providers/{providerId}/validate:
+    post:
+      tags: [providers]
+      summary: Validate provider configuration
+      description: Test if a provider is properly configured and accessible
+      operationId: validateProvider
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Provider identifier
+      responses:
+        '200':
+          description: Provider validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderValidation'
+
+components:
+  schemas:
+    # Health and Status
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+      required: [status, timestamp, version]
+
+    ServiceStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        providers:
+          $ref: '#/components/schemas/ProviderStatus'
+        configuration:
+          type: object
+          properties:
+            transcription_provider:
+              type: string
+            storage_provider:
+              type: string
+            environment:
+              type: string
+        statistics:
+          type: object
+          properties:
+            active_jobs:
+              type: integer
+            completed_jobs:
+              type: integer
+            supported_formats:
+              type: array
+              items:
+                type: string
+      required: [status, version, timestamp]
+
+    # Transcription
+    TranscriptionOptions:
+      type: object
+      properties:
+        language:
+          type: string
+          description: Language code (e.g., 'en', 'es')
+        model:
+          type: string
+          description: Transcription model to use
+          default: whisper-1
+        response_format:
+          type: string
+          enum: [json, text, srt, vtt]
+          default: json
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0
+        prompt:
+          type: string
+          description: Optional prompt to guide transcription
+
+    TranscribeUrlRequest:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL of audio file to transcribe
+        options:
+          $ref: '#/components/schemas/TranscriptionOptions'
+      required: [url]
+
+    TranscriptionResult:
+      type: object
+      properties:
+        text:
+          type: string
+          description: Full transcription text
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptionSegment'
+        language:
+          type: string
+          description: Detected language
+        duration:
+          type: number
+          description: Audio duration in seconds
+        model:
+          type: string
+          description: Model used for transcription
+        processed_at:
+          type: string
+          format: date-time
+      required: [text, segments, language, duration, processed_at]
+
+    TranscriptionSegment:
+      type: object
+      properties:
+        id:
+          type: integer
+        start:
+          type: number
+          description: Segment start time in seconds
+        end:
+          type: number
+          description: Segment end time in seconds
+        text:
+          type: string
+          description: Segment text
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+      required: [id, start, end, text]
+
+    # Jobs
+    JobState:
+      type: string
+      enum: [pending, running, completed, failed, cancelled]
+
+    JobResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          description: Unique job identifier
+        status:
+          $ref: '#/components/schemas/JobState'
+        created_at:
+          type: string
+          format: date-time
+        estimated_duration:
+          type: number
+          description: Estimated processing time in seconds
+      required: [job_id, status, created_at]
+
+    BatchJobResponse:
+      type: object
+      properties:
+        batch_id:
+          type: string
+          description: Batch identifier
+        job_ids:
+          type: array
+          items:
+            type: string
+          description: Individual job identifiers
+        total_jobs:
+          type: integer
+        successful_submissions:
+          type: integer
+        failed_submissions:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+      required: [batch_id, job_ids, total_jobs, successful_submissions, failed_submissions, created_at]
+
+    JobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobState'
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Job progress percentage
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        result:
+          $ref: '#/components/schemas/TranscriptionResult'
+        error:
+          type: string
+          description: Error message if job failed
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [job_id, status, created_at]
+
+    JobList:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobStatus'
+        total:
+          type: integer
+          description: Total number of jobs matching criteria
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+      required: [jobs, total, limit, offset, has_more]
+
+    JobLogs:
+      type: object
+      properties:
+        job_id:
+          type: string
+        logs:
+          type: array
+          items:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+      required: [job_id, logs, timestamp]
+
+    CancelResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobState'
+        cancelled_at:
+          type: string
+          format: date-time
+        message:
+          type: string
+      required: [job_id, status, cancelled_at]
+
+    # Providers
+    ProviderStatus:
+      type: object
+      properties:
+        transcription:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              available:
+                type: boolean
+              error:
+                type: string
+        storage:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              available:
+                type: boolean
+              error:
+                type: string
+
+    ProviderList:
+      type: object
+      properties:
+        transcription_providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderInfo'
+        storage_providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderInfo'
+
+    ProviderInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        available:
+          type: boolean
+        supported_formats:
+          type: array
+          items:
+            type: string
+        configuration:
+          type: object
+          additionalProperties: true
+      required: [id, name, enabled, available]
+
+    ProviderValidation:
+      type: object
+      properties:
+        provider_id:
+          type: string
+        valid:
+          type: boolean
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+      required: [provider_id, valid, message]
+
+    # Error Handling
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+      required: [error, timestamp]
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

@@ -1,0 +1,10 @@
+# FastAPI and dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# HTTP client for service communication
+httpx==0.25.2
+
+# Development
+pytest==0.21.1
+pytest-asyncio==0.21.1

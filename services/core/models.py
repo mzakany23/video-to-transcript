@@ -21,10 +21,10 @@ class JobState(Enum):
 @dataclass
 class FileInfo:
     """Information about a file in storage"""
-    path: str
     name: str
+    path: str
     size: int
-    modified: datetime
+    modified_at: datetime
     mime_type: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     
@@ -43,8 +43,9 @@ class FileInfo:
 class DownloadResult:
     """Result of a download operation"""
     success: bool
-    local_path: Optional[str] = None
-    size: Optional[int] = None
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None
+    download_time_seconds: Optional[float] = None
     error: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -53,10 +54,36 @@ class DownloadResult:
 class UploadResult:
     """Result of an upload operation"""
     success: bool
-    storage_path: Optional[str] = None
-    size: Optional[int] = None
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None
+    upload_time_seconds: Optional[float] = None
     error: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class BatchResult:
+    """Result of a batch operation"""
+    successful: List[Any] = field(default_factory=list)
+    failed: List[Dict[str, Any]] = field(default_factory=list)
+    total_processed: int = 0
+    
+    @property
+    def success_count(self) -> int:
+        """Number of successful operations"""
+        return len(self.successful)
+    
+    @property
+    def failure_count(self) -> int:
+        """Number of failed operations"""
+        return len(self.failed)
+    
+    @property
+    def success_rate(self) -> float:
+        """Success rate as percentage"""
+        if self.total_processed == 0:
+            return 0.0
+        return (self.success_count / self.total_processed) * 100
 
 
 @dataclass
