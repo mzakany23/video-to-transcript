@@ -31,8 +31,8 @@ async def main():
     )
     
     # Configure local storage paths
-    dev_settings.storage_configs["local"].config["base_path"] = "./webhook_storage"
-    dev_settings.job_runner_configs["local"].config["work_dir"] = "./webhook_jobs"
+    dev_settings.storage_configs["local"].config["base_path"] = "./data/webhook_storage"
+    dev_settings.job_runner_configs["local"].config["work_dir"] = "./data/webhook_jobs"
     
     print(f"   Storage: {dev_settings.storage_provider}")
     print(f"   Job Runner: {dev_settings.job_runner}")

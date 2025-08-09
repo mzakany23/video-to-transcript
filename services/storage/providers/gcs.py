@@ -14,6 +14,7 @@ from ...core.interfaces import StorageProvider
 from ...core.models import FileInfo, DownloadResult, UploadResult, BatchResult
 from ...core.exceptions import StorageException, AuthenticationException
 from ...core.logging import get_logger
+from ...core.resilience import retry_on_error, timeout, RetryableError, NonRetryableError
 
 logger = get_logger(__name__)
 
@@ -82,6 +83,8 @@ class GCSStorageProvider(StorageProvider):
         finally:
             loop.close()
     
+    @retry_on_error(max_attempts=3, base_delay=1.0)
+    @timeout(300.0)  # 5 minute timeout
     async def download(self, source_path: str, destination_path: str) -> DownloadResult:
         """
         Download file from GCS
@@ -142,6 +145,8 @@ class GCSStorageProvider(StorageProvider):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(executor, _download)
     
+    @retry_on_error(max_attempts=3, base_delay=1.0)
+    @timeout(300.0)  # 5 minute timeout
     async def upload(self, source_path: str, destination_path: str) -> UploadResult:
         """
         Upload file to GCS

@@ -303,3 +303,42 @@ api-health: ## Check health of all API services
 	@curl -s http://localhost:8002/health | jq . || echo "Webhook API not responding"
 	@echo "$(BLUE)Orchestration Health:$(NC)"
 	@curl -s http://localhost:8003/health | jq . || echo "Orchestration API not responding"
+
+## Production Deployment
+deploy-production: ## Deploy to production (requires environment variables)
+	@echo "$(YELLOW)🚀 Deploying to production$(NC)"
+	@./deploy/scripts/deploy.sh --provider gcp --environment production
+
+deploy-staging: ## Deploy to staging environment  
+	@echo "$(YELLOW)🚀 Deploying to staging$(NC)"
+	@./deploy/scripts/deploy.sh --provider docker --environment staging
+
+deploy-development: ## Deploy to development environment
+	@echo "$(YELLOW)🚀 Deploying to development$(NC)"
+	@./deploy/scripts/deploy.sh --provider docker --environment development
+
+deploy-dry-run: ## Show what would be deployed without executing
+	@echo "$(YELLOW)🔍 Dry run deployment$(NC)"
+	@./deploy/scripts/deploy.sh --provider gcp --environment production --dry-run
+
+## Configuration Management
+config-validate: ## Validate current configuration
+	@echo "$(YELLOW)🔧 Validating configuration$(NC)"
+	@uv run python cli/config_manager.py validate
+
+config-init: ## Initialize configuration interactively
+	@echo "$(YELLOW)🔧 Initializing configuration$(NC)"
+	@uv run python cli/config_manager.py init
+
+config-migrate: ## Migrate configuration file (requires CONFIG_FILE)
+	@echo "$(YELLOW)🔧 Migrating configuration$(NC)"
+	@if [ -z "$(CONFIG_FILE)" ]; then \
+		echo "$(RED)❌ CONFIG_FILE is required$(NC)"; \
+		echo "Usage: make config-migrate CONFIG_FILE=path/to/config.json"; \
+		exit 1; \
+	fi
+	@uv run python cli/config_manager.py migrate $(CONFIG_FILE)
+
+config-sample: ## Generate sample configuration file
+	@echo "$(YELLOW)🔧 Generating sample configuration$(NC)"
+	@uv run python cli/config_manager.py generate --output config_sample.json

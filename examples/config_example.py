@@ -45,10 +45,10 @@ def main():
     )
     
     # Configure local storage
-    dev_settings.storage_configs["local"].config["base_path"] = "./dev_storage"
+    dev_settings.storage_configs["local"].config["base_path"] = "./data/dev_storage"
     
     # Configure local job runner
-    dev_settings.job_runner_configs["local"].config["work_dir"] = "./dev_jobs"
+    dev_settings.job_runner_configs["local"].config["work_dir"] = "./data/dev_jobs"
     
     dev_factory = ServiceFactory(dev_settings)
     

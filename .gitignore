@@ -1,4 +1,12 @@
-data
+# Data directories (transient storage)
+data/dev_jobs/*
+data/dev_storage/*
+data/fastapi_jobs/*
+data/fastapi_storage/*  
+data/webhook_jobs/*
+data/webhook_storage/*
+!data/*/README.md
+!data/README.md
 # Python
 __pycache__/
 *.py[cod]
@@ -72,5 +80,7 @@ webhook-function.zip
 webhook_info.json
 
 # Test files
-test_*.py
 .claude
+
+# UV package manager
+uv.lock

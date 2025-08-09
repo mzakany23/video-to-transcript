@@ -17,6 +17,7 @@ from ...core.models import (
     TranscriptionSegment,
 )
 from ...core.exceptions import TranscriptionException, AuthenticationException
+from ...core.resilience import retry_on_error, timeout, circuit_breaker
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,9 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
         except Exception as e:
             raise AuthenticationException(f"Failed to initialize OpenAI client: {str(e)}")
     
+    @retry_on_error(max_attempts=3, base_delay=2.0)
+    @circuit_breaker(failure_threshold=5, recovery_timeout=300.0)  # 5 min recovery
+    @timeout(600.0)  # 10 minute timeout
     async def transcribe(
         self,
         audio_path: str,

@@ -29,8 +29,8 @@ def main():
         )
         
         # Configure local paths
-        dev_settings.storage_configs["local"].config["base_path"] = "./fastapi_storage"
-        dev_settings.job_runner_configs["local"].config["work_dir"] = "./fastapi_jobs"
+        dev_settings.storage_configs["local"].config["base_path"] = "./data/fastapi_storage"
+        dev_settings.job_runner_configs["local"].config["work_dir"] = "./data/fastapi_jobs"
         
         factory = ServiceFactory(dev_settings)
         
