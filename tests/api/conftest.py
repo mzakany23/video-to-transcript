@@ -8,11 +8,32 @@ from unittest.mock import Mock, AsyncMock
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
+# Import API apps - need to add path to import correctly
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+# Import API apps using importlib to handle hyphenated directory names
+import importlib.util
+
+def import_app(path, app_name="app"):
+    """Import app from hyphenated directory"""
+    try:
+        spec = importlib.util.spec_from_file_location("main", path / "main.py")
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return getattr(module, app_name, None)
+    except (ImportError, FileNotFoundError, AttributeError):
+        return None
+    return None
+
 # Import API apps
-from api.transcription_api.main import app as transcription_app
-from api.webhook_api.main import app as webhook_app  
-from api.orchestration_api.main import app as orchestration_app
-from api.gateway.main import app as gateway_app
+project_root = Path(__file__).parent.parent.parent
+transcription_app = import_app(project_root / "api" / "transcription-api")
+webhook_app = import_app(project_root / "api" / "webhook-api")
+orchestration_app = import_app(project_root / "api" / "orchestration-api")  
+gateway_app = import_app(project_root / "api" / "gateway")
 
 # Import services for mocking
 from services.config.factory import ServiceFactory

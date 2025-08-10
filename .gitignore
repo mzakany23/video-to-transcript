@@ -2,7 +2,7 @@
 data/dev_jobs/*
 data/dev_storage/*
 data/fastapi_jobs/*
-data/fastapi_storage/*  
+data/fastapi_storage/*
 data/webhook_jobs/*
 data/webhook_storage/*
 !data/*/README.md
@@ -81,6 +81,7 @@ webhook_info.json
 
 # Test files
 .claude
+.coverage
 
 # UV package manager
 uv.lock

@@ -170,7 +170,7 @@ class TestTranscriptionService(unittest.TestCase):
             path="/storage/test.mp3",
             name="test.mp3",
             size=1024,
-            modified=datetime.now()
+            modified_at=datetime.now()
         )
         
         # Mock transcription
@@ -213,7 +213,7 @@ class TestOpenAITranscriptionProvider(unittest.TestCase):
     """Test OpenAITranscriptionProvider functionality"""
     
     @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'})
-    @patch('services.transcription.providers.openai.OpenAI')
+    @patch('openai.OpenAI')
     def setUp(self, mock_openai_class):
         """Set up test fixtures"""
         self.mock_client = Mock()
@@ -225,8 +225,9 @@ class TestOpenAITranscriptionProvider(unittest.TestCase):
         self.assertIsNotNone(self.provider)
         self.assertEqual(self.provider.api_key, 'test-key')
     
-    @patch.dict('os.environ', {})
-    def test_initialization_without_key(self):
+    @patch.dict('os.environ', {}, clear=True)
+    @patch('openai.OpenAI')
+    def test_initialization_without_key(self, mock_openai_class):
         """Test provider initialization without API key"""
         with self.assertRaises(AuthenticationException):
             OpenAITranscriptionProvider()

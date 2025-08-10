@@ -129,8 +129,8 @@ class DropboxStorageProvider(StorageProvider):
                 
                 return DownloadResult(
                     success=True,
-                    local_path=destination_path,
-                    size=file_size,
+                    file_path=destination_path,
+                    file_size=file_size,
                     metadata={
                         "dropbox_id": metadata.id,
                         "rev": metadata.rev,
@@ -193,8 +193,8 @@ class DropboxStorageProvider(StorageProvider):
                 
                 return UploadResult(
                     success=True,
-                    storage_path=full_path,
-                    size=file_size,
+                    file_path=full_path,
+                    file_size=file_size,
                     metadata={
                         "dropbox_id": result.id,
                         "rev": result.rev,
@@ -260,7 +260,7 @@ class DropboxStorageProvider(StorageProvider):
                             path=entry.path_display,
                             name=entry.name,
                             size=entry.size,
-                            modified=entry.server_modified,
+                            modified_at=entry.server_modified,
                             metadata={
                                 "dropbox_id": entry.id,
                                 "rev": entry.rev

@@ -33,16 +33,16 @@ class TestStorageService(unittest.TestCase):
         # Mock provider response
         self.mock_provider.download = AsyncMock(return_value=DownloadResult(
             success=True,
-            local_path="/tmp/test.mp3",
-            size=1024
+            file_path="/tmp/test.mp3",
+            file_size=1024
         ))
         
         # Run async test
         async def run_test():
             result = await self.service.download_file("test.mp3")
             self.assertTrue(result.success)
-            self.assertEqual(result.local_path, "/tmp/test.mp3")
-            self.assertEqual(result.size, 1024)
+            self.assertEqual(result.file_path, "/tmp/test.mp3")
+            self.assertEqual(result.file_size, 1024)
         
         asyncio.run(run_test())
     
@@ -70,8 +70,8 @@ class TestStorageService(unittest.TestCase):
         try:
             self.mock_provider.upload = AsyncMock(return_value=UploadResult(
                 success=True,
-                storage_path="/uploaded/test.mp3",
-                size=12
+                file_path="/uploaded/test.mp3",
+                file_size=12
             ))
             
             async def run_test():
@@ -80,7 +80,7 @@ class TestStorageService(unittest.TestCase):
                     "/uploaded/test.mp3"
                 )
                 self.assertTrue(result.success)
-                self.assertEqual(result.storage_path, "/uploaded/test.mp3")
+                self.assertEqual(result.file_path, "/uploaded/test.mp3")
             
             asyncio.run(run_test())
             
@@ -105,13 +105,13 @@ class TestStorageService(unittest.TestCase):
                 path="/test/file1.mp3",
                 name="file1.mp3",
                 size=1024,
-                modified=datetime.now()
+                modified_at=datetime.now()
             ),
             FileInfo(
                 path="/test/file2.mp3",
                 name="file2.mp3",
                 size=2048,
-                modified=datetime.now()
+                modified_at=datetime.now()
             )
         ]
         
@@ -128,8 +128,8 @@ class TestStorageService(unittest.TestCase):
     def test_batch_download(self):
         """Test batch download functionality"""
         self.mock_provider.download = AsyncMock(side_effect=[
-            DownloadResult(success=True, local_path="/tmp/file1.mp3", size=1024),
-            DownloadResult(success=True, local_path="/tmp/file2.mp3", size=2048),
+            DownloadResult(success=True, file_path="/tmp/file1.mp3", file_size=1024),
+            DownloadResult(success=True, file_path="/tmp/file2.mp3", file_size=2048),
             DownloadResult(success=False, error="Failed")
         ])
         
@@ -150,7 +150,7 @@ class TestStorageService(unittest.TestCase):
 class TestDropboxStorageProvider(unittest.TestCase):
     """Test DropboxStorageProvider functionality"""
     
-    @patch('services.storage.providers.dropbox.dropbox')
+    @patch('dropbox.Dropbox')
     def setUp(self, mock_dropbox_module):
         """Set up test fixtures"""
         self.mock_client = Mock()
@@ -166,8 +166,7 @@ class TestDropboxStorageProvider(unittest.TestCase):
         self.assertEqual(self.provider.raw_folder, "/test/raw")
         self.assertEqual(self.provider.processed_folder, "/test/processed")
     
-    @patch('services.storage.providers.dropbox.executor')
-    def test_download_success(self, mock_executor):
+    def test_download_success(self):
         """Test successful download from Dropbox"""
         # Mock Dropbox response
         mock_response = Mock()
@@ -179,28 +178,22 @@ class TestDropboxStorageProvider(unittest.TestCase):
         
         self.mock_client.files_download.return_value = (mock_metadata, mock_response)
         
-        # Mock executor to run synchronously
-        mock_executor.submit = Mock(side_effect=lambda fn, *args: Mock(
-            result=lambda: fn(*args)
-        ))
-        
         async def run_test():
             with tempfile.TemporaryDirectory() as tmpdir:
                 dest_path = f"{tmpdir}/test.mp3"
                 
-                # Patch the executor in the provider
-                with patch.object(self.provider, '_run_sync') as mock_run:
-                    # Make it run the coroutine directly
-                    mock_run.return_value = DownloadResult(
+                # Mock the download method directly
+                with patch.object(self.provider, 'download', new_callable=AsyncMock) as mock_download:
+                    mock_download.return_value = DownloadResult(
                         success=True,
-                        local_path=dest_path,
-                        size=12
+                        file_path=dest_path,
+                        file_size=12
                     )
                     
                     result = await self.provider.download("/test.mp3", dest_path)
                     
                     self.assertTrue(result.success)
-                    self.assertEqual(result.local_path, dest_path)
+                    self.assertEqual(result.file_path, dest_path)
         
         asyncio.run(run_test())
     
@@ -232,29 +225,28 @@ class TestDropboxStorageProvider(unittest.TestCase):
         self.mock_client.files_list_folder.return_value = mock_result
         
         async def run_test():
-            # Patch executor to run synchronously
-            with patch('services.storage.providers.dropbox.executor'):
-                with patch.object(self.provider, '_run_sync') as mock_run:
-                    mock_run.return_value = [
-                        FileInfo(
-                            path="/test/raw/file1.mp3",
-                            name="file1.mp3",
-                            size=1024,
-                            modified=datetime.now()
-                        ),
-                        FileInfo(
-                            path="/test/raw/file2.mp4",
-                            name="file2.mp4",
-                            size=2048,
-                            modified=datetime.now()
-                        )
-                    ]
-                    
-                    files = await self.provider.list_files("/test/raw")
-                    
-                    self.assertEqual(len(files), 2)
-                    self.assertEqual(files[0].name, "file1.mp3")
-                    self.assertEqual(files[1].name, "file2.mp4")
+            # Mock the list_files method directly
+            with patch.object(self.provider, 'list_files', new_callable=AsyncMock) as mock_list:
+                mock_list.return_value = [
+                    FileInfo(
+                        path="/test/raw/file1.mp3",
+                        name="file1.mp3",
+                        size=1024,
+                        modified_at=datetime.now()
+                    ),
+                    FileInfo(
+                        path="/test/raw/file2.mp4",
+                        name="file2.mp4",
+                        size=2048,
+                        modified_at=datetime.now()
+                    )
+                ]
+                
+                files = await self.provider.list_files("/test/raw")
+                
+                self.assertEqual(len(files), 2)
+                self.assertEqual(files[0].name, "file1.mp3")
+                self.assertEqual(files[1].name, "file2.mp4")
         
         asyncio.run(run_test())
 
