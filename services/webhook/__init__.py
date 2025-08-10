@@ -2,14 +2,14 @@
 Webhook service for handling external notifications
 """
 
-from .service import WebhookService
-from .handlers.dropbox import DropboxWebhookHandler
 from .cursors import CursorManager
+from .handlers.dropbox import DropboxWebhookHandler
+from .service import WebhookService
 from .tracking import JobTracker
 
 __all__ = [
     "WebhookService",
-    "DropboxWebhookHandler", 
+    "DropboxWebhookHandler",
     "CursorManager",
     "JobTracker",
 ]

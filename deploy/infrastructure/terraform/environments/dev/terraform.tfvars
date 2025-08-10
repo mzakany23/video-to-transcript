@@ -1,0 +1,15 @@
+# Terraform variables for Dropbox transcription pipeline
+
+project_id = "jos-transcripts"
+region     = "us-east1"
+
+# Dropbox credentials from Google Secrets
+dropbox_access_token = "sl.u.AF5ex0UGaJ4Dev9JlDpkGAvX6aeQ3XLGq7HLnhQViZiun1z81RGhxFDagX5KTntX2kPTp_CZS55xihA2A4zUoyr8gPBqQocSB_Slw_XPVbD7uy7GS3qNgBYIQWto2CIIgkF0IQuY9fiAtcJg3v5nS2UvmGuk7Vo3l7gWjb7L1oNj3ZUOvq0bT-JtyXq9uaFVPPkTc7OjmssdCW0BQiMBWs0yTNG2eZwOBiKbdbtTnageQ2aqIKP8hwHcOvJfo35jbvQwjy95TADJ9Mx9kCu60g5U7cQxKsQe3d83zv1QG4tBMtAQ-TFrIJUclenAxtKVzGK5AkAsBRh6lRMQ26_KCG7qs-_nQ-1j-PnhCkvmHk5c2pEuEnKdkcDDKoQSg5jSsZ_E1fUaLQUgZiOFILgSTq71Riq_g2rdqimGjJ_8-LGrUOWDVhHyxDm8KwFoSoZ1OTVUR4dYwtf1I5I7-hClXnwgtv_jBFcx89Qly-jj8qcapdZLVXdSTmbrQmj2P4nt03DW5eRco5CiBXGZ5vOfC_bDvAjvXKy8uMMB-uwOOhrB1G3-4GpHe1wlRJPX7HurfF3um3Wp2pZrDoFaYk4r97XdLJiKsGgHVvd9aQud3CdiQ-KRc2xx8j-5jTGNd8rEVrPfZr1eFGhDcw920IdGyqrKo7IWm5YWJGcJRrZKTJLgzbYDLLGKlU81o_TeAl4herVyXBncNzmTXEH_Crq49lHl65WxknwaInjDVPuN8aGxlPspPGSQZ6SftJ3-prU0Ckj5rTFFipePg06QFx9fPFZ-IgHfcs987gj32k_v45iZj40wEH5hPbcUR98hZbl9msObz6jb-F-00JULw6li-ZwGXcLPLAm7XsY4se4oAwMZZyrg8xeZgF9jvxWaVeYN21R3RbBX1zm3ORthbdBqXNXt9HOFnZM4VxKFD-ed0nsfPT-BXtDRIz6BW5ErL-k4jIF8JTHZxw-GKclzvcPMusO9J1tFA0HnwyIhnJFpSNsZ-OIcKX1kpVbd4lsP7KUmbR_LTBtdbGJCyPHI90UEW04Ii3GpKyKNLeMT6a4WVfjFo6ItYSgQoNIjB_uq7rpcZjSRgr71vJRu63WXe7O677U-lyIH6S5NeCfQIxJnhlsfvDsd2lJYO05ku8XIcHzsqlwJXF8R4EnIrpwvC9mKx8DBtVmAgosT7K-5svixM_CMC_Zaao8VAOjeeKlJ4XVamp2yTRFMpeIs28pJtFitO0goAZY32Ayxi-s5Vjy80_fu4LiSRiKSLd1L3ewnE2HdO7NQx7P-70GOfRdvH_7nVREi"
+dropbox_app_secret = "aklkt8yz7pshz34"
+
+# Gmail notification settings - UPDATE THESE VALUES
+gmail_address      = "mzakany@gmail.com"        # Your Gmail address
+gmail_app_password = "vwag andl grwo sars"      # Paste from pbpaste
+notification_emails = [                         # List of emails to notify (CSV format)
+  "mzakany@gmail.com"
+]

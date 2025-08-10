@@ -2,8 +2,8 @@
 Storage service with pluggable providers
 """
 
-from .service import StorageService
 from .providers.dropbox import DropboxStorageProvider
+from .service import StorageService
 
 __all__ = [
     "StorageService",

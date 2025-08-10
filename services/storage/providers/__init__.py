@@ -8,6 +8,6 @@ from .local import LocalStorageProvider
 
 __all__ = [
     "DropboxStorageProvider",
-    "GCSStorageProvider", 
+    "GCSStorageProvider",
     "LocalStorageProvider",
 ]

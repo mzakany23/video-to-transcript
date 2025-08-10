@@ -27,11 +27,11 @@ help: ## Show this help message
 	@echo
 	@echo "$(BLUE)Cloud Providers:$(NC)"
 	@echo "  $(GREEN)✅ Google Cloud$(NC) - deploy-gcp (fully supported)"
-	@echo "  $(YELLOW)⏳ AWS$(NC)          - deploy-aws (coming Phase 3)"
-	@echo "  $(YELLOW)⏳ Azure$(NC)        - deploy-azure (coming Phase 3)"
 
 ## Development Setup
-setup: ## Set up development environment with uv
+setup: develop ## Set up development environment with uv (alias for develop)
+
+develop: ## Set up development environment with uv
 	@echo "$(YELLOW)🚀 Setting up development environment$(NC)"
 	@if ! command -v uv >/dev/null 2>&1; then \
 		echo "$(YELLOW)📦 Installing uv...$(NC)"; \
@@ -41,7 +41,7 @@ setup: ## Set up development environment with uv
 	@uv venv
 	@echo "$(YELLOW)📥 Installing dependencies$(NC)"
 	@uv pip install -r requirements/dev.txt
-	@uv pip install -e .
+	@uv pip install -e .[dev]
 	@echo "$(GREEN)✅ Development environment ready!$(NC)"
 	@echo "$(YELLOW)To activate: source .venv/bin/activate$(NC)"
 
@@ -49,21 +49,21 @@ setup: ## Set up development environment with uv
 test: ## Run all tests
 	@echo "$(YELLOW)🧪 Running transcription services tests$(NC)"
 	@if ! command -v uv >/dev/null 2>&1; then \
-		echo "$(RED)❌ uv not found. Run 'make setup' first$(NC)"; \
+		echo "$(RED)❌ uv not found. Run 'make develop' first$(NC)"; \
 		exit 1; \
 	fi
 	@if [ ! -d ".venv" ]; then \
-		echo "$(YELLOW)📦 Creating virtual environment$(NC)"; \
-		uv venv; \
+		echo "$(YELLOW)📦 No virtual environment found. Running 'make develop'$(NC)"; \
+		$(MAKE) develop; \
 	fi
-	@echo "$(YELLOW)📥 Installing dependencies$(NC)"
-	@uv pip install -r requirements/dev.txt
+	@echo "$(YELLOW)📥 Ensuring dependencies are installed$(NC)"
+	@uv pip install -e .[dev]
 	@echo "$(YELLOW)🔬 Running unit tests$(NC)"
-	@uv run pytest tests/ --cov=services --cov=worker --cov-report=term-missing --cov-report=html
+	@uv run pytest tests/services/ --cov=services --cov-report=term-missing --cov-report=html
 	@echo "$(YELLOW)🔍 Running type checks$(NC)"
 	@uv run mypy services/ || echo "$(YELLOW)⚠️ Type check warnings (non-critical)$(NC)"
 	@echo "$(YELLOW)🧹 Running linting$(NC)"
-	@uv run ruff check services/ worker/ tests/ || echo "$(YELLOW)⚠️ Lint warnings (non-critical)$(NC)"
+	@uv run ruff check services/ tests/ || echo "$(YELLOW)⚠️ Lint warnings (non-critical)$(NC)"
 	@echo "$(GREEN)✅ All tests completed$(NC)"
 
 test-quick: ## Run tests quickly without coverage
@@ -78,7 +78,7 @@ build: ## Build both worker and webhook containers
 	@echo "$(YELLOW)Tag: $(TAG)$(NC)"
 	@echo
 	@echo "$(YELLOW)📦 Building worker image...$(NC)"
-	@docker build --target worker -t $(WORKER_IMAGE):$(TAG) .
+	@docker build -f deploy/docker/images/Dockerfile --target worker -t $(WORKER_IMAGE):$(TAG) .
 	@if [ $$? -eq 0 ]; then \
 		echo "$(GREEN)✅ Worker image built successfully$(NC)"; \
 	else \
@@ -86,7 +86,7 @@ build: ## Build both worker and webhook containers
 		exit 1; \
 	fi
 	@echo "$(YELLOW)📦 Building webhook image...$(NC)"
-	@docker build --target webhook -t $(WEBHOOK_IMAGE):$(TAG) .
+	@docker build -f deploy/docker/images/Dockerfile --target webhook -t $(WEBHOOK_IMAGE):$(TAG) .
 	@if [ $$? -eq 0 ]; then \
 		echo "$(GREEN)✅ Webhook image built successfully$(NC)"; \
 	else \
@@ -97,11 +97,11 @@ build: ## Build both worker and webhook containers
 
 build-worker: ## Build only worker container
 	@echo "$(YELLOW)📦 Building worker image...$(NC)"
-	@docker build --target worker -t $(WORKER_IMAGE):$(TAG) .
+	@docker build -f deploy/docker/images/Dockerfile --target worker -t $(WORKER_IMAGE):$(TAG) .
 
 build-webhook: ## Build only webhook container  
 	@echo "$(YELLOW)📦 Building webhook image...$(NC)"
-	@docker build --target webhook -t $(WEBHOOK_IMAGE):$(TAG) .
+	@docker build -f deploy/docker/images/Dockerfile --target webhook -t $(WEBHOOK_IMAGE):$(TAG) .
 
 ## Container Testing
 test-containers: build ## Test container builds
@@ -165,22 +165,9 @@ deploy-gcp: build push-gcp ## Build and deploy to Google Cloud Platform
 	@echo "  • Update Cloud Run services to use new images"
 	@echo "  • Set USE_NEW_SERVICES=true to enable modular architecture"
 
-# Amazon Web Services (placeholder for future)
-tag-aws: ## Tag images for Amazon ECR (not implemented)
-	@echo "$(YELLOW)⚠️ AWS deployment not implemented yet$(NC)"
-	@echo "$(BLUE)Planned: Tag images for Amazon ECR$(NC)"
 
-deploy-aws: ## Deploy to Amazon Web Services (not implemented)
-	@echo "$(YELLOW)⚠️ AWS deployment not implemented yet$(NC)"
-	@echo "$(BLUE)This will be available in Phase 3$(NC)"
-
-# Microsoft Azure (placeholder for future)
-deploy-azure: ## Deploy to Microsoft Azure (not implemented)
-	@echo "$(YELLOW)⚠️ Azure deployment not implemented yet$(NC)"
-	@echo "$(BLUE)This will be available in Phase 3$(NC)"
-
-# Generic deploy target that defaults to GCP for now
-deploy: deploy-gcp ## Deploy to default cloud provider (currently GCP)
+# Generic deploy target
+deploy: deploy-gcp ## Deploy to Google Cloud Platform
 
 ## Local Testing  
 run-worker: ## Run worker container locally
@@ -219,7 +206,7 @@ clean-all: clean ## Clean up everything including .venv
 	@echo "$(GREEN)✅ Full cleanup completed$(NC)"
 
 ## Development
-dev: setup ## Set up development environment (alias for setup)
+dev: develop ## Set up development environment (alias for develop)
 
 format: ## Format code with ruff and black
 	@echo "$(YELLOW)🎨 Formatting code...$(NC)"
@@ -231,6 +218,12 @@ lint: ## Run linting checks
 	@echo "$(YELLOW)🔍 Running linting...$(NC)"
 	@uv run ruff check services/ worker/ tests/
 	@uv run mypy services/
+
+lint-fix: ## Fix linting errors automatically
+	@echo "$(YELLOW)🔧 Fixing linting errors...$(NC)"
+	@uv run ruff check --fix --unsafe-fixes services/ worker/ tests/
+	@uv run ruff format services/ worker/ tests/
+	@echo "$(GREEN)✅ Linting errors fixed$(NC)"
 
 ## Information
 info: ## Show project information
@@ -244,14 +237,10 @@ info: ## Show project information
 	@echo "$(BLUE)🌐 Cloud Provider Support:$(NC)"
 	@echo "$(GREEN)✅ Google Cloud Platform$(NC)"
 	@echo "  • Container Registry: gcr.io/$(PROJECT_ID)/"
-	@echo "  • Deploy command: make deploy-production"
+	@echo "  • Deploy command: make deploy-gcp"
 	@echo "$(GREEN)✅ Docker$(NC)"
 	@echo "  • Local deployment with Docker Compose"
-	@echo "  • Deploy command: make deploy-dev"
-	@echo "$(YELLOW)🚧 AWS (Planned)$(NC)"
-	@echo "  • Future: ECS/Fargate deployment"
-	@echo "$(YELLOW)🚧 Azure (Planned)$(NC)"  
-	@echo "  • Future: Container Instances deployment"
+	@echo "  • Deploy command: docker-compose up"
 	@echo
 	@if [ -d ".venv" ]; then \
 		echo "$(YELLOW)Virtual Env:$(NC) ✅ Ready"; \
@@ -286,15 +275,15 @@ api-docker: ## Start API services with Docker Compose
 	@echo "  • Webhook:        http://localhost:8002"
 	@echo "  • Orchestration:  http://localhost:8003"
 	@echo
-	docker-compose -f docker-compose.api.yml up --build
+	docker-compose -f deploy/docker/compose/production.yml up --build
 
 api-docker-stop: ## Stop API services
 	@echo "$(YELLOW)🛑 Stopping API services$(NC)"
-	docker-compose -f docker-compose.api.yml down
+	docker-compose -f deploy/docker/compose/production.yml down
 
 api-docker-logs: ## Show API service logs
 	@echo "$(YELLOW)📋 Showing API service logs$(NC)"
-	docker-compose -f docker-compose.api.yml logs -f
+	docker-compose -f deploy/docker/compose/production.yml logs -f
 
 api-health: ## Check health of all API services
 	@echo "$(YELLOW)🏥 Checking API service health$(NC)"

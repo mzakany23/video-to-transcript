@@ -2,12 +2,12 @@
 Job orchestration service with pluggable runners
 """
 
-from .service import OrchestrationService
 from .runners.cloudrun import CloudRunJobRunner
 from .runners.local import LocalJobRunner
+from .service import OrchestrationService
 
 __all__ = [
-    "OrchestrationService", 
+    "OrchestrationService",
     "CloudRunJobRunner",
     "LocalJobRunner",
 ]

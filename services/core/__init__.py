@@ -2,39 +2,38 @@
 Core interfaces and models for the transcription service system
 """
 
+from .exceptions import (
+    AuthenticationError,
+    ConfigurationError,
+    JobError,
+    NotificationError,
+    ServiceError,
+    StorageError,
+    TranscriptionError,
+)
 from .interfaces import (
-    StorageProvider,
-    TranscriptionProvider,
     JobRunner,
     NotificationProvider,
+    StorageProvider,
+    TranscriptionProvider,
 )
-
+from .logging import configure_logging, get_logger
 from .models import (
+    DownloadResult,
     FileInfo,
-    TranscriptionOptions,
-    TranscriptionResult,
-    TranscriptionSegment,
     JobSpec,
     JobState,
     JobStatus,
-    DownloadResult,
+    TranscriptionOptions,
+    TranscriptionResult,
+    TranscriptionSegment,
     UploadResult,
 )
-
-from .exceptions import (
-    ServiceException,
-    StorageException,
-    TranscriptionException,
-    JobException,
-    NotificationException,
-)
-
-from .logging import configure_logging, get_logger
 
 __all__ = [
     # Interfaces
     "StorageProvider",
-    "TranscriptionProvider", 
+    "TranscriptionProvider",
     "JobRunner",
     "NotificationProvider",
     # Models
@@ -48,11 +47,13 @@ __all__ = [
     "DownloadResult",
     "UploadResult",
     # Exceptions
-    "ServiceException",
-    "StorageException",
-    "TranscriptionException",
-    "JobException",
-    "NotificationException",
+    "ServiceError",
+    "StorageError",
+    "TranscriptionError",
+    "JobError",
+    "NotificationError",
+    "ConfigurationError",
+    "AuthenticationError",
     # Logging
     "configure_logging",
     "get_logger",

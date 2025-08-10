@@ -2,19 +2,31 @@
 Shared test fixtures for API testing
 """
 
-import pytest
-import asyncio
-from unittest.mock import Mock, AsyncMock
-from fastapi.testclient import TestClient
-from httpx import AsyncClient
-
 # Import API apps - need to add path to import correctly
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent.parent.parent))
+
+import asyncio
 
 # Import API apps using importlib to handle hyphenated directory names
 import importlib.util
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+from fastapi.testclient import TestClient
+from httpx import AsyncClient
+
+# Import services for mocking
+from services.config.factory import ServiceFactory
+from services.core.interfaces import (
+    JobRunner,
+    NotificationProvider,
+    StorageProvider,
+    TranscriptionProvider,
+)
+
 
 def import_app(path, app_name="app"):
     """Import app from hyphenated directory"""
@@ -28,19 +40,13 @@ def import_app(path, app_name="app"):
         return None
     return None
 
+
 # Import API apps
 project_root = Path(__file__).parent.parent.parent
 transcription_app = import_app(project_root / "api" / "transcription-api")
 webhook_app = import_app(project_root / "api" / "webhook-api")
-orchestration_app = import_app(project_root / "api" / "orchestration-api")  
+orchestration_app = import_app(project_root / "api" / "orchestration-api")
 gateway_app = import_app(project_root / "api" / "gateway")
-
-# Import services for mocking
-from services.config.factory import ServiceFactory
-from services.core.interfaces import (
-    StorageProvider, TranscriptionProvider, 
-    JobRunner, NotificationProvider
-)
 
 
 @pytest.fixture
@@ -51,7 +57,7 @@ def mock_storage_provider():
     mock.upload.return_value = Mock(success=True, url="https://storage.example.com/result.json")
     mock.list_files.return_value = [
         Mock(name="test1.mp3", path="/files/test1.mp3", size=1024),
-        Mock(name="test2.wav", path="/files/test2.wav", size=2048)
+        Mock(name="test2.wav", path="/files/test2.wav", size=2048),
     ]
     return mock
 
@@ -65,8 +71,8 @@ def mock_transcription_provider():
         confidence=0.95,
         segments=[
             Mock(start=0.0, end=2.5, text="Hello, this is"),
-            Mock(start=2.5, end=5.0, text="a test transcription.")
-        ]
+            Mock(start=2.5, end=5.0, text="a test transcription."),
+        ],
     )
     mock.get_supported_formats.return_value = ["mp3", "wav", "m4a", "flac"]
     return mock
@@ -83,14 +89,14 @@ def mock_job_runner():
         started_at=None,
         completed_at=None,
         is_terminal=True,
-        metadata={}
+        metadata={},
     )
     mock.cancel_job.return_value = True
     mock.list_jobs.return_value = []
     return mock
 
 
-@pytest.fixture  
+@pytest.fixture
 def mock_notification_provider():
     """Mock notification provider"""
     mock = AsyncMock(spec=NotificationProvider)
@@ -100,10 +106,7 @@ def mock_notification_provider():
 
 @pytest.fixture
 def mock_service_factory(
-    mock_storage_provider,
-    mock_transcription_provider, 
-    mock_job_runner,
-    mock_notification_provider
+    mock_storage_provider, mock_transcription_provider, mock_job_runner, mock_notification_provider
 ):
     """Mock service factory with all providers"""
     factory = Mock(spec=ServiceFactory)
@@ -111,7 +114,7 @@ def mock_service_factory(
     factory.get_transcription_provider.return_value = mock_transcription_provider
     factory.get_job_runner.return_value = mock_job_runner
     factory.get_notification_provider.return_value = mock_notification_provider
-    
+
     # Mock settings
     factory.settings = Mock()
     factory.settings.environment = "test"
@@ -119,7 +122,7 @@ def mock_service_factory(
     factory.settings.storage_provider = "local"
     factory.settings.transcription_provider = "openai"
     factory.settings.notification_provider = "email"
-    
+
     # Mock validation
     factory.validate_configuration.return_value = {
         "valid": True,
@@ -127,30 +130,18 @@ def mock_service_factory(
             "storage": {"status": "valid", "name": "local"},
             "transcription": {"status": "valid", "name": "openai"},
             "job_runner": {"status": "valid", "name": "local"},
-            "notification": {"status": "valid", "name": "email"}
-        }
+            "notification": {"status": "valid", "name": "email"},
+        },
     }
-    
+
     # Mock available providers
     factory.get_available_providers.return_value = {
-        "storage": {
-            "available": ["local", "gcs", "dropbox"],
-            "enabled": ["local"]
-        },
-        "transcription": {
-            "available": ["openai"], 
-            "enabled": ["openai"]
-        },
-        "job_runner": {
-            "available": ["local", "cloud_run"],
-            "enabled": ["local"]
-        },
-        "notification": {
-            "available": ["email"],
-            "enabled": ["email"]
-        }
+        "storage": {"available": ["local", "gcs", "dropbox"], "enabled": ["local"]},
+        "transcription": {"available": ["openai"], "enabled": ["openai"]},
+        "job_runner": {"available": ["local", "cloud_run"], "enabled": ["local"]},
+        "notification": {"available": ["email"], "enabled": ["email"]},
     }
-    
+
     return factory
 
 
@@ -220,14 +211,8 @@ def sample_job_request():
     """Sample job request data"""
     return {
         "job_type": "transcription",
-        "input_data": {
-            "file_path": "/files/test-audio.mp3",
-            "file_name": "test-audio.mp3"
-        },
-        "environment": {
-            "PROJECT_ID": "test-project",
-            "LOG_LEVEL": "DEBUG"
-        }
+        "input_data": {"file_path": "/files/test-audio.mp3", "file_name": "test-audio.mp3"},
+        "environment": {"PROJECT_ID": "test-project", "LOG_LEVEL": "DEBUG"},
     }
 
 
@@ -235,13 +220,8 @@ def sample_job_request():
 def sample_webhook_payload():
     """Sample webhook payload"""
     return {
-        "list_folder": {
-            "accounts": ["dbid:test123"],
-            "cursor": "cursor123"
-        },
-        "delta": {
-            "users": [1234567]
-        }
+        "list_folder": {"accounts": ["dbid:test123"], "cursor": "cursor123"},
+        "delta": {"users": [1234567]},
     }
 
 
@@ -250,18 +230,8 @@ def sample_batch_request():
     """Sample batch job request"""
     return {
         "jobs": [
-            {
-                "input_data": {
-                    "file_path": "/files/audio1.mp3",
-                    "file_name": "audio1.mp3"
-                }
-            },
-            {
-                "input_data": {
-                    "file_path": "/files/audio2.wav", 
-                    "file_name": "audio2.wav"
-                }
-            }
+            {"input_data": {"file_path": "/files/audio1.mp3", "file_name": "audio1.mp3"}},
+            {"input_data": {"file_path": "/files/audio2.wav", "file_name": "audio2.wav"}},
         ],
-        "max_concurrent": 2
+        "max_concurrent": 2,
     }

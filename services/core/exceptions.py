@@ -3,36 +3,43 @@ Custom exceptions for the service system
 """
 
 
-class ServiceException(Exception):
+class ServiceError(Exception):
     """Base exception for all service errors"""
+
     pass
 
 
-class StorageException(ServiceException):
+class StorageError(ServiceError):
     """Exception for storage-related errors"""
+
     pass
 
 
-class TranscriptionException(ServiceException):
+class TranscriptionError(ServiceError):
     """Exception for transcription-related errors"""
+
     pass
 
 
-class JobException(ServiceException):
+class JobError(ServiceError):
     """Exception for job execution errors"""
+
     pass
 
 
-class NotificationException(ServiceException):
+class NotificationError(ServiceError):
     """Exception for notification errors"""
+
     pass
 
 
-class ConfigurationException(ServiceException):
+class ConfigurationError(ServiceError):
     """Exception for configuration errors"""
+
     pass
 
 
-class AuthenticationException(ServiceException):
+class AuthenticationError(ServiceError):
     """Exception for authentication errors"""
+
     pass
