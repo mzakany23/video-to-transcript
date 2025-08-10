@@ -10,6 +10,12 @@ TAG ?= latest
 WORKER_IMAGE = transcription-worker
 WEBHOOK_IMAGE = transcription-webhook
 
+# AWS Configuration (v2 primary)
+AWS_PROFILE ?= default
+AWS_REGION ?= us-east-1
+AWS_ACCOUNT_ID ?= 123456789012
+ECR_REGISTRY = $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+
 # Colors for output
 GREEN = \033[0;32m
 YELLOW = \033[1;33m
@@ -26,7 +32,8 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo
 	@echo "$(BLUE)Cloud Providers:$(NC)"
-	@echo "  $(GREEN)✅ Google Cloud$(NC) - deploy-gcp (fully supported)"
+	@echo "  $(GREEN)✅ AWS$(NC) - deploy-aws (v2 primary platform)"
+	@echo "  $(GREEN)✅ Google Cloud$(NC) - deploy-gcp (v1 legacy, stable)"
 
 ## Development Setup
 setup: develop ## Set up development environment with uv (alias for develop)
@@ -139,7 +146,40 @@ except Exception as e: \
 
 ## Cloud Provider Deployments
 
-# Google Cloud Platform
+# AWS (v2 Primary Platform)
+tag-aws: ## Tag images for AWS Elastic Container Registry
+	@if [ "$(AWS_ACCOUNT_ID)" = "123456789012" ]; then \
+		echo "$(RED)❌ Set AWS_ACCOUNT_ID environment variable$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(YELLOW)🏷️ Tagging images for AWS ECR...$(NC)"
+	@docker tag $(WORKER_IMAGE):$(TAG) $(ECR_REGISTRY)/$(WORKER_IMAGE):$(TAG)
+	@docker tag $(WEBHOOK_IMAGE):$(TAG) $(ECR_REGISTRY)/$(WEBHOOK_IMAGE):$(TAG)
+	@echo "$(GREEN)✅ Images tagged for ECR$(NC)"
+
+push-aws: tag-aws ## Push images to AWS Elastic Container Registry
+	@echo "$(YELLOW)🚀 Pushing images to AWS ECR...$(NC)"
+	@echo "$(YELLOW)🔐 Logging into ECR...$(NC)"
+	@aws ecr get-login-password --region $(AWS_REGION) --profile $(AWS_PROFILE) | docker login --username AWS --password-stdin $(ECR_REGISTRY)
+	@echo "$(YELLOW)📦 Creating ECR repositories if they don't exist...$(NC)"
+	@aws ecr create-repository --repository-name $(WORKER_IMAGE) --region $(AWS_REGION) --profile $(AWS_PROFILE) 2>/dev/null || true
+	@aws ecr create-repository --repository-name $(WEBHOOK_IMAGE) --region $(AWS_REGION) --profile $(AWS_PROFILE) 2>/dev/null || true
+	@echo "$(YELLOW)⬆️ Pushing images...$(NC)"
+	@docker push $(ECR_REGISTRY)/$(WORKER_IMAGE):$(TAG)
+	@docker push $(ECR_REGISTRY)/$(WEBHOOK_IMAGE):$(TAG)
+	@echo "$(GREEN)✅ Images pushed to ECR$(NC)"
+
+deploy-aws: build push-aws ## Build and deploy to AWS (v2 primary platform)
+	@echo "$(GREEN)🎉 AWS deployment completed!$(NC)"
+	@echo "$(BLUE)AWS ECR images:$(NC)"
+	@echo "  • $(ECR_REGISTRY)/$(WORKER_IMAGE):$(TAG)"
+	@echo "  • $(ECR_REGISTRY)/$(WEBHOOK_IMAGE):$(TAG)"
+	@echo "$(YELLOW)Next steps:$(NC)"
+	@echo "  • Deploy infrastructure: cd deploy/infrastructure/terraform/aws && terraform apply"
+	@echo "  • Update ECS services to use new images"
+	@echo "  • Set USE_NEW_SERVICES=true in Parameter Store"
+
+# Google Cloud Platform (v1 Legacy)
 tag-gcp: ## Tag images for Google Container Registry
 	@if [ "$(PROJECT_ID)" = "your-project-id" ]; then \
 		echo "$(RED)❌ Set PROJECT_ID environment variable$(NC)"; \
@@ -166,8 +206,8 @@ deploy-gcp: build push-gcp ## Build and deploy to Google Cloud Platform
 	@echo "  • Set USE_NEW_SERVICES=true to enable modular architecture"
 
 
-# Generic deploy target
-deploy: deploy-gcp ## Deploy to Google Cloud Platform
+# Generic deploy target (v2 primary)
+deploy: deploy-aws ## Deploy to AWS (v2 primary platform)
 
 ## Local Testing  
 run-worker: ## Run worker container locally
@@ -191,6 +231,8 @@ clean: ## Clean up Docker images and containers
 	@echo "$(YELLOW)🧹 Cleaning up Docker resources...$(NC)"
 	@docker rmi -f $(WORKER_IMAGE):$(TAG) 2>/dev/null || true
 	@docker rmi -f $(WEBHOOK_IMAGE):$(TAG) 2>/dev/null || true
+	@docker rmi -f $(ECR_REGISTRY)/$(WORKER_IMAGE):$(TAG) 2>/dev/null || true
+	@docker rmi -f $(ECR_REGISTRY)/$(WEBHOOK_IMAGE):$(TAG) 2>/dev/null || true
 	@docker rmi -f gcr.io/$(PROJECT_ID)/$(WORKER_IMAGE):$(TAG) 2>/dev/null || true
 	@docker rmi -f gcr.io/$(PROJECT_ID)/$(WEBHOOK_IMAGE):$(TAG) 2>/dev/null || true
 	@docker system prune -f >/dev/null 2>&1 || true
@@ -235,7 +277,10 @@ info: ## Show project information
 	@echo "$(YELLOW)Webhook Image:$(NC) $(WEBHOOK_IMAGE):$(TAG)"
 	@echo
 	@echo "$(BLUE)🌐 Cloud Provider Support:$(NC)"
-	@echo "$(GREEN)✅ Google Cloud Platform$(NC)"
+	@echo "$(GREEN)✅ AWS (v2 Primary)$(NC)"
+	@echo "  • Container Registry: $(ECR_REGISTRY)/"
+	@echo "  • Deploy command: make deploy-aws"
+	@echo "$(GREEN)✅ Google Cloud Platform (v1 Legacy)$(NC)"
 	@echo "  • Container Registry: gcr.io/$(PROJECT_ID)/"
 	@echo "  • Deploy command: make deploy-gcp"
 	@echo "$(GREEN)✅ Docker$(NC)"

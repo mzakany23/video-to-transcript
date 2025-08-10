@@ -1,16 +1,23 @@
-# Transcripts - Modular Audio/Video Transcription Pipeline
+# Transcripts v2 - Modular Audio/Video Transcription Pipeline
 
 **Cloud-agnostic, microservices-based transcription system** with pluggable providers and FastAPI REST APIs. Upload files to any storage provider, get transcripts automatically via configurable job runners.
 
 ## Architecture Overview
 
-**Fully modular system** with clean API boundaries, allowing easy switching between cloud platforms (GCP ↔ AWS ↔ Azure) and storage providers (Dropbox ↔ GCS ↔ S3).
+**Fully modular system** with clean API boundaries, allowing easy switching between cloud platforms and storage providers.
 
-### Current State: **PRODUCTION READY**
+### Version 2.0 - **DEVELOPMENT BRANCH**
+This is the `v2` development branch focused on:
 - **4 FastAPI microservices** with comprehensive testing and documentation
-- **Multi-Cloud**: Abstract interfaces for easy platform switching (GCP, AWS, Azure)
+- **AWS-first deployment**: Primary testing and development on AWS infrastructure
 - **Pluggable providers**: Easy configuration-based switching between storage/compute providers
-- **Legacy compatible**: Original worker/webhook still functional alongside new APIs
+- **Modern architecture**: Clean provider abstractions and dependency injection
+
+### Branch Strategy
+- **`main`**: Production v1.0 (GCP deployed, no changes)
+- **`v2`**: Target branch for v2.0 features
+- **`migration-to-modularity`**: Current development branch (merges to v2)
+- **Deployment**: v2 testing on AWS, v1 stable on GCP
 
 ## Quick Start
 
@@ -31,13 +38,13 @@ docker-compose -f deploy/docker/compose/dev.yml up
 
 ### Production Deployment
 ```bash
-# Deploy to Google Cloud Platform
-export PROJECT_ID=your-gcp-project
-make deploy-gcp
+# Deploy to AWS (v2 primary platform)
+export AWS_PROFILE=your-aws-profile
+make deploy-aws
 
-# Multi-cloud ready (infrastructure modules exist)
-# make deploy-aws     # Coming soon
-# make deploy-azure   # Coming soon
+# Legacy v1 (GCP - production stable, no changes)
+# export PROJECT_ID=your-gcp-project
+# make deploy-gcp
 ```
 
 ## Microservices Architecture
@@ -227,7 +234,7 @@ python -m pytest tests/api/ -v               # API layer
 ### Building & Deployment
 ```bash
 make build                   # Build all Docker containers
-make deploy-gcp             # Deploy to Google Cloud Platform
+make deploy-aws             # Deploy to AWS (v2 primary)
 make info                   # Show project status and capabilities
 ```
 
@@ -238,7 +245,7 @@ make help                   # Show all available commands + cloud support matrix
 make setup                  # Set up development environment with uv
 make test                   # Run full test suite with coverage reporting  
 make build                  # Build all Docker containers with multi-stage builds
-make deploy-gcp            # Deploy to Google Cloud Platform
+make deploy-aws            # Deploy to AWS (v2 primary platform)
 make clean                 # Clean Docker resources and temporary files
 make info                  # Show project status and cloud provider support
 ```
@@ -334,32 +341,23 @@ docker-compose -f deploy/docker/compose/production.yml up --scale transcription-
 
 ### Cloud Deployment (Production)
 
-**Google Cloud Platform** (Fully Supported):
-```bash
-# Deploy infrastructure using modular terraform
-cd deploy/infrastructure/terraform/environments/dev
-terraform init
-terraform plan
-terraform apply
+**AWS** (v2 Primary Platform):
+```bash  
+# Deploy v2 infrastructure to AWS
+export AWS_PROFILE=your-aws-profile
+make deploy-aws
+# Creates: ECS services, Lambda functions, Parameter Store, S3 buckets
+```
 
-# Or via makefile
+**Google Cloud Platform** (v1 Legacy - Stable):
+```bash
+# v1 production deployment (no changes)
 export PROJECT_ID=your-gcp-project
 make deploy-gcp
+# Maintains: Cloud Run services, Cloud Functions, Secret Manager
 ```
 
-**AWS** (Infrastructure Ready):
-```bash  
-# Coming soon - Terraform modules exist
-make deploy-aws  
-# Will create: ECS services, Lambda functions, Parameter Store
-```
-
-**Azure** (Infrastructure Ready):
-```bash
-# Coming soon - Terraform modules exist  
-make deploy-azure
-# Will create: Container Instances, Azure Functions, Key Vault
-```
+**Note**: v2 development focuses on AWS infrastructure while v1 remains stable on GCP.
 
 ### Deployment Structure
 

@@ -48,12 +48,16 @@ service-account.json
 conversation/
 NOTES.md
 
-# Terraform
-terraform/.terraform/
-terraform/*.tfstate
-terraform/*.tfstate.*
-terraform/.terraform.lock.hcl
-terraform/*.tfvars
+# Terraform (v1 legacy and v2 infrastructure)
+terraform_v1/.terraform/
+terraform_v1/*.tfstate
+terraform_v1/*.tfstate.*
+terraform_v1/.terraform.lock.hcl
+terraform_v1/*.tfvars
+deploy/infrastructure/terraform/**/.terraform/
+deploy/infrastructure/terraform/**/*.tfstate
+deploy/infrastructure/terraform/**/*.tfstate.*
+deploy/infrastructure/terraform/**/.terraform.lock.hcl
 
 # IDE
 .vscode/
