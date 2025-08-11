@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: transcription-api
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - configmap.yaml
+  - secret.yaml
+
+commonLabels:
+  app.kubernetes.io/component: transcription-api
+  app.kubernetes.io/name: transcription-api

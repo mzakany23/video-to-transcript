@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: argocd
+
+resources:
+  - namespace.yaml
+  - argocd-configmaps.yaml
+  - argocd-server.yaml
+  - argocd-application-controller.yaml
+  - argocd-repo-server.yaml
+  - argocd-dex-server.yaml
+  - argocd-redis.yaml
+  - argocd-rbac.yaml
+  - workflow-controller.yaml
+
+commonLabels:
+  app.kubernetes.io/component: argocd
+  app.kubernetes.io/name: argocd

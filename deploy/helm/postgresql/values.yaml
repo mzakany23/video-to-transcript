@@ -1,0 +1,94 @@
+# PostgreSQL Helm Values for Transcripts v2
+# Using the official Bitnami PostgreSQL Helm chart
+
+# PostgreSQL configuration
+postgresql:
+  auth:
+    postgresPassword: postgres123
+    username: transcripts
+    password: transcripts123
+    database: transcripts_db
+  
+  # Configuration parameters
+  postgresqlConfiguration:
+    shared_preload_libraries: 'pg_stat_statements'
+    max_connections: '100'
+    shared_buffers: '128MB'
+    effective_cache_size: '256MB'
+    work_mem: '4MB'
+    maintenance_work_mem: '64MB'
+    wal_buffers: '16MB'
+    checkpoint_completion_target: '0.9'
+    wal_writer_delay: '200ms'
+    logging_collector: 'on'
+    log_directory: 'pg_log'
+    log_filename: 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_statement: 'all'
+    log_min_duration_statement: '1000'
+    track_activities: 'on'
+    track_counts: 'on'
+    track_io_timing: 'on'
+    track_functions: 'pl'
+
+# Architecture - standalone for local development
+architecture: standalone
+
+# Primary configuration
+primary:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  
+  persistence:
+    enabled: true
+    storageClass: "local-path"
+    accessMode: ReadWriteOnce
+    size: 5Gi
+  
+  service:
+    type: ClusterIP
+    ports:
+      postgresql: 5432
+
+# Metrics (optional)
+metrics:
+  enabled: false
+
+# Security context
+podSecurityContext:
+  enabled: true
+  fsGroup: 1001
+
+containerSecurityContext:
+  enabled: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  runAsNonRoot: true
+
+# Init database scripts (if needed)
+initdbScripts:
+  01_init.sql: |
+    -- Create extensions
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+    
+    -- Grant permissions
+    GRANT ALL PRIVILEGES ON DATABASE transcripts_db TO transcripts;
+
+# Service account
+serviceAccount:
+  create: true
+
+# Network policy
+networkPolicy:
+  enabled: false
+
+# Volume permissions
+volumePermissions:
+  enabled: true
+  securityContext:
+    runAsUser: 0

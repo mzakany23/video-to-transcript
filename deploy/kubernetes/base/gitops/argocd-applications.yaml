@@ -1,0 +1,86 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: transcripts-infrastructure
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/transcripts.git
+    targetRevision: migration-to-modularity
+    path: deploy/kubernetes/base/infrastructure
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: infrastructure
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: transcripts-services
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/transcripts.git
+    targetRevision: migration-to-modularity
+    path: deploy/kubernetes/environments/local
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: endpoints
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  # Ignore image differences - let image updater handle those
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/template/spec/containers/0/image
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: transcripts-project
+  namespace: argocd
+spec:
+  description: Transcripts v2 Application Project
+  sourceRepos:
+  - 'https://github.com/your-org/transcripts.git'
+  destinations:
+  - namespace: endpoints
+    server: https://kubernetes.default.svc
+  - namespace: infrastructure
+    server: https://kubernetes.default.svc
+  - namespace: argocd
+    server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: '*'
+  - group: apps
+    kind: '*'
+  - group: extensions
+    kind: '*'
+  - group: networking.k8s.io
+    kind: '*'
+  roles:
+  - name: admin
+    description: Admin access to transcripts project
+    policies:
+    - p, proj:transcripts-project:admin, applications, *, transcripts-project/*, allow
+    - p, proj:transcripts-project:admin, repositories, *, *, allow

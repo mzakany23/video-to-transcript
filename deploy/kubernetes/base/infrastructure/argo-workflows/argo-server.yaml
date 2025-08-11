@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argo-server
+  namespace: argo-workflows
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: argo-server
+  template:
+    metadata:
+      labels:
+        app: argo-server
+    spec:
+      containers:
+      - name: argo-server
+        image: quay.io/argoproj/argocli:v3.4.4
+        command:
+        - argo
+        - server
+        - --auth-mode=server
+        - --secure=false
+        ports:
+        - containerPort: 2746
+          name: web
+        env:
+        - name: ARGO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 2746
+          initialDelaySeconds: 10
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 2746
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      serviceAccountName: argo-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argo-server
+  namespace: argo-workflows
+spec:
+  type: ClusterIP
+  ports:
+  - name: web
+    port: 2746
+    protocol: TCP
+    targetPort: 2746
+  selector:
+    app: argo-server

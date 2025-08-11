@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: minio
+
+resources:
+  - minio-deployment.yaml
+  - minio-service.yaml
+  - minio-pvc.yaml
+  - minio-secret.yaml
+
+commonLabels:
+  app.kubernetes.io/component: minio
+  app.kubernetes.io/name: minio

@@ -1,0 +1,108 @@
+# ArgoCD Helm Values for Transcripts v2
+# Using the official ArgoCD Helm chart
+
+global:
+  image:
+    tag: v2.8.4
+
+configs:
+  params:
+    server.insecure: true
+    server.disable.auth: false
+    
+  cm:
+    application.instanceLabelKey: argocd.argoproj.io/instance
+    server.rbac.log.enforce.enable: "false"
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, certificates, *, *, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      g, argocd:admin, role:admin
+
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, certificates, *, *, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      g, argocd:admin, role:admin
+
+server:
+  replicas: 1
+  service:
+    type: ClusterIP
+    servicePortHttp: 80
+    servicePortHttps: 443
+  ingress:
+    enabled: false
+  
+  # NodePort for easy local access
+  extraObjects:
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: argocd-server-nodeport
+        namespace: argocd
+      spec:
+        type: NodePort
+        ports:
+        - name: server
+          port: 80
+          targetPort: 8080
+          nodePort: 30080
+          protocol: TCP
+        selector:
+          app.kubernetes.io/component: server
+          app.kubernetes.io/instance: argocd
+          app.kubernetes.io/name: argocd-server
+
+controller:
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+repoServer:
+  replicas: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+dex:
+  enabled: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+redis:
+  enabled: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Enable ApplicationSet controller
+applicationSet:
+  enabled: true
+
+# Notifications controller
+notifications:
+  enabled: false

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: endpoints
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: gateway
+---
+# NodePort for easy local access
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-nodeport
+  namespace: endpoints
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    nodePort: 30800
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: gateway

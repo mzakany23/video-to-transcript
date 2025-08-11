@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflow-controller
+  namespace: argo-workflows
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workflow-controller
+  template:
+    metadata:
+      labels:
+        app: workflow-controller
+    spec:
+      containers:
+      - name: workflow-controller
+        image: quay.io/argoproj/workflow-controller:v3.4.4
+        command:
+        - workflow-controller
+        env:
+        - name: LEADER_ELECTION_IDENTITY
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: ARGO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        ports:
+        - containerPort: 9090
+          name: metrics
+        - containerPort: 6060
+          name: telemetry
+      serviceAccountName: workflow-controller
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workflow-controller-configmap
+  namespace: argo-workflows
+data:
+  config: |
+    executor:
+      imagePullPolicy: IfNotPresent
+    containerRuntimeExecutor: docker
+    artifactRepository:
+      s3:
+        bucket: argo-artifacts
+        endpoint: minio.infrastructure.svc.cluster.local:9000
+        insecure: true
+        accessKeySecret:
+          name: minio-secret
+          key: root-user
+        secretKeySecret:
+          name: minio-secret
+          key: root-password

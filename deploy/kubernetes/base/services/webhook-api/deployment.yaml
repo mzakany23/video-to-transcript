@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-api
+  namespace: endpoints
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: webhook-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: webhook-api
+    spec:
+      containers:
+      - name: webhook-api
+        image: transcripts/webhook-api:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: ENVIRONMENT
+          value: "development"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: DROPBOX_APP_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: webhook-secrets
+              key: dropbox-app-secret
+        - name: STORAGE_PROVIDER
+          value: "local"
+        envFrom:
+        - configMapRef:
+            name: webhook-config
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5

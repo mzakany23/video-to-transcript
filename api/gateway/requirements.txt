@@ -6,5 +6,5 @@ uvicorn[standard]==0.24.0
 httpx==0.25.2
 
 # Development
-pytest==0.21.1
-pytest-asyncio==0.21.1
+pytest==8.4.1
+pytest-asyncio==0.24.0

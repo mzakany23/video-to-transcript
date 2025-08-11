@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: argo-workflows
+
+resources:
+  - namespace.yaml
+  - workflow-controller.yaml
+  - argo-server.yaml
+  - workflow-rbac.yaml
+  - workflow-templates.yaml
+
+commonLabels:
+  app.kubernetes.io/component: argo-workflows
+  app.kubernetes.io/name: argo-workflows
