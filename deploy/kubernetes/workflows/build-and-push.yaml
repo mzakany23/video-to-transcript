@@ -8,9 +8,9 @@ spec:
   arguments:
     parameters:
     - name: git-url
-      value: "https://github.com/yourusername/transcripts.git"
+      value: "https://github.com/mzakany23/video-to-transcript.git"
     - name: git-revision
-      value: "migration-to-modularity"
+      value: "v2"
     - name: registry
       value: "docker-registry.infrastructure.svc.cluster.local:5000"
     - name: tag
