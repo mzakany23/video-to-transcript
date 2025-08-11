@@ -1,4 +1,12 @@
-data
+# Data directories (transient storage)
+data/dev_jobs/*
+data/dev_storage/*
+data/fastapi_jobs/*
+data/fastapi_storage/*
+data/webhook_jobs/*
+data/webhook_storage/*
+!data/*/README.md
+!data/README.md
 # Python
 __pycache__/
 *.py[cod]
@@ -40,12 +48,16 @@ service-account.json
 conversation/
 NOTES.md
 
-# Terraform
-terraform/.terraform/
-terraform/*.tfstate
-terraform/*.tfstate.*
-terraform/.terraform.lock.hcl
-terraform/*.tfvars
+# Terraform (v1 legacy and v2 infrastructure)
+terraform_v1/.terraform/
+terraform_v1/*.tfstate
+terraform_v1/*.tfstate.*
+terraform_v1/.terraform.lock.hcl
+terraform_v1/*.tfvars
+deploy/infrastructure/terraform/**/.terraform/
+deploy/infrastructure/terraform/**/*.tfstate
+deploy/infrastructure/terraform/**/*.tfstate.*
+deploy/infrastructure/terraform/**/.terraform.lock.hcl
 
 # IDE
 .vscode/
@@ -72,4 +84,8 @@ webhook-function.zip
 webhook_info.json
 
 # Test files
-test_*.py
+.claude
+.coverage
+
+# UV package manager
+uv.lock

@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: docker-registry
+
+resources:
+  - registry-deployment.yaml
+  - registry-service.yaml
+  - registry-pvc.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/component: docker-registry
+      app.kubernetes.io/name: docker-registry

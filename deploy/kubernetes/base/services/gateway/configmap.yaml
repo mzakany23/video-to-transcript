@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+  namespace: endpoints
+data:
+  # Gateway configuration
+  GATEWAY_HOST: "0.0.0.0"
+  GATEWAY_PORT: "8000"
+  GATEWAY_WORKERS: "4"
+  
+  # Service discovery
+  SERVICE_DISCOVERY_MODE: "kubernetes"
+  
+  # Rate limiting
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "100"
+  
+  # CORS settings
+  CORS_ENABLED: "true"
+  CORS_ORIGINS: "*"
+  
+  # Health check
+  HEALTH_CHECK_INTERVAL: "30"

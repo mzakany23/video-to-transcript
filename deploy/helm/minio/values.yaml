@@ -1,0 +1,89 @@
+# MinIO Helm Values for Transcripts v2
+# Using the official MinIO Helm chart
+
+# MinIO deployment mode - standalone for local development
+mode: standalone
+
+# Root credentials
+auth:
+  rootUser: admin
+  rootPassword: minio123
+
+# Default buckets to create
+defaultBuckets: "argo-artifacts,transcripts-storage"
+
+# Resource configuration
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 250m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+# Persistence configuration
+persistence:
+  enabled: true
+  storageClass: "local-path"
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    api: 9000
+    console: 9001
+
+# Console service for web UI
+consoleService:
+  type: NodePort
+  ports:
+    console: 9001
+  nodePorts:
+    console: 30900
+
+# Ingress
+ingress:
+  enabled: false
+  console:
+    enabled: false
+
+# Configure MinIO Console
+consoleIngress:
+  enabled: false
+
+# Environment variables
+environment:
+  MINIO_BROWSER_REDIRECT_URL: "http://localhost:30900"
+  MINIO_SERVER_URL: "http://minio.infrastructure.svc.cluster.local:9000"
+
+# Security context
+securityContext:
+  enabled: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+podSecurityContext:
+  enabled: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Disable distributed mode for simplicity
+distributor:
+  enabled: false
+
+# Health checks
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  timeoutSeconds: 5
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 5

@@ -1,0 +1,98 @@
+# Argo Workflows Helm Values for Transcripts v2
+# Using the official Argo Workflows Helm chart
+
+workflow:
+  namespace: argo-workflows
+  serviceAccount:
+    create: true
+    name: argo
+
+controller:
+  image:
+    tag: v3.4.4
+  workflowNamespaces:
+    - argo-workflows
+    - endpoints
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  
+  # Configuration for artifact repository
+  workflowDefaults:
+    spec:
+      artifactRepositoryRef:
+        configMap: artifact-repositories
+        key: default
+
+server:
+  enabled: true
+  image:
+    tag: v3.4.4
+  baseHref: /
+  secure: false
+  authModes: 
+    - server
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  # NodePort for easy local access
+  extraObjects:
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: argo-server-nodeport
+        namespace: argo-workflows
+      spec:
+        type: NodePort
+        ports:
+        - name: web
+          port: 2746
+          targetPort: 2746
+          nodePort: 30746
+          protocol: TCP
+        selector:
+          app.kubernetes.io/component: server
+          app.kubernetes.io/instance: argo-workflows
+          app.kubernetes.io/name: argo-workflows-server
+
+executor:
+  image:
+    tag: v3.4.4
+
+# Artifact repository configuration using MinIO
+artifactRepository:
+  archiveLogs: false
+  s3:
+    endpoint: minio.infrastructure.svc.cluster.local:9000
+    bucket: argo-artifacts
+    insecure: true
+    accessKeySecret:
+      name: argo-artifacts-secret
+      key: accesskey
+    secretKeySecret:
+      name: argo-artifacts-secret
+      key: secretkey
+
+# Create the MinIO secret for artifacts
+configs:
+  artifactRepository:
+    archiveLogs: false
+    s3:
+      endpoint: minio.infrastructure.svc.cluster.local:9000
+      bucket: argo-artifacts
+      insecure: true
+      accessKeySecret:
+        name: argo-artifacts-secret
+        key: accesskey
+      secretKeySecret:
+        name: argo-artifacts-secret
+        key: secretkey

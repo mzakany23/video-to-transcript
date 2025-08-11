@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argo-workflows-ingress
+  namespace: argo-workflows
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: workflows.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argo-server
+            port:
+              number: 2746
+---
+# Port-forward service for easy local access
+apiVersion: v1
+kind: Service
+metadata:
+  name: argo-server-nodeport
+  namespace: argo-workflows
+spec:
+  type: NodePort
+  ports:
+  - name: web
+    port: 2746
+    targetPort: 2746
+    nodePort: 30746
+    protocol: TCP
+  selector:
+    app: argo-server

@@ -1,0 +1,93 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-and-push-images
+  namespace: argo-workflows
+spec:
+  entrypoint: build-all-images
+  arguments:
+    parameters:
+    - name: git-url
+      value: "https://github.com/yourusername/transcripts.git"
+    - name: git-revision
+      value: "migration-to-modularity"
+    - name: registry
+      value: "docker-registry.infrastructure.svc.cluster.local:5000"
+    - name: tag
+      value: "{{workflow.creationTimestamp.Y}}{{workflow.creationTimestamp.m}}{{workflow.creationTimestamp.d}}-{{workflow.uid}}"
+
+  templates:
+  - name: build-all-images
+    steps:
+    - - name: checkout
+        template: git-checkout
+    - - name: build-gateway
+        template: build-and-push-service
+        arguments:
+          parameters:
+          - name: service-name
+            value: "gateway"
+          - name: dockerfile
+            value: "deploy/docker/images/api/gateway.Dockerfile"
+      - name: build-transcription-api
+        template: build-and-push-service
+        arguments:
+          parameters:
+          - name: service-name
+            value: "transcription-api"
+          - name: dockerfile
+            value: "deploy/docker/images/api/transcription-api.Dockerfile"
+      - name: build-orchestration-api
+        template: build-and-push-service
+        arguments:
+          parameters:
+          - name: service-name
+            value: "orchestration-api"
+          - name: dockerfile
+            value: "deploy/docker/images/api/orchestration-api.Dockerfile"
+      - name: build-webhook-api
+        template: build-and-push-service
+        arguments:
+          parameters:
+          - name: service-name
+            value: "webhook-api"
+          - name: dockerfile
+            value: "deploy/docker/images/api/webhook-api.Dockerfile"
+
+  - name: git-checkout
+    container:
+      image: alpine/git:latest
+      command: [sh, -c]
+      args: ["git clone {{workflow.parameters.git-url}} /workspace && cd /workspace && git checkout {{workflow.parameters.git-revision}}"]
+      workingDir: /workspace
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+
+  - name: build-and-push-service
+    inputs:
+      parameters:
+      - name: service-name
+      - name: dockerfile
+    container:
+      image: gcr.io/kaniko-project/executor:latest
+      args:
+      - --context=/workspace
+      - --dockerfile=/workspace/{{inputs.parameters.dockerfile}}
+      - --destination={{workflow.parameters.registry}}/transcripts/{{inputs.parameters.service-name}}:{{workflow.parameters.tag}}
+      - --destination={{workflow.parameters.registry}}/transcripts/{{inputs.parameters.service-name}}:latest
+      - --insecure
+      - --skip-tls-verify
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+
+  volumeClaimTemplates:
+  - metadata:
+      name: workspace
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "local-path"
+      resources:
+        requests:
+          storage: 5Gi

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webhook-config
+  namespace: endpoints
+data:
+  # API configuration
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  API_WORKERS: "4"
+  
+  # Webhook settings
+  WEBHOOK_TIMEOUT_SECONDS: "30"
+  MAX_WEBHOOK_RETRIES: "3"
+  
+  # Storage settings
+  CURSOR_FILE_PATH: "webhook/cursors.json"
+  TRACKING_FILE_PATH: "webhook/processed_jobs.json"
+  
+  # Database settings
+  DATABASE_URL: "postgresql://postgres:postgres123@postgresql.infrastructure.svc.cluster.local:5432/transcripts_db"

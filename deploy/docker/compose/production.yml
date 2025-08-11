@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/docker/images/api/gateway.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GATEWAY_TRANSCRIPTION_SERVICE_URL=http://transcription-api:8001
+      - GATEWAY_WEBHOOK_SERVICE_URL=http://webhook-api:8002
+      - GATEWAY_ORCHESTRATION_SERVICE_URL=http://orchestration-api:8003
+    depends_on:
+      - transcription-api
+      - webhook-api
+      - orchestration-api
+    networks:
+      - api-network
+    restart: unless-stopped
+
+  # Transcription API
+  transcription-api:
+    build:
+      context: .
+      dockerfile: deploy/docker/images/api/transcription-api.Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - TRANSCRIPTION_ENVIRONMENT=production
+      - TRANSCRIPTION_JOB_RUNNER=cloud_run
+      - TRANSCRIPTION_STORAGE_PROVIDER=gcs
+      - TRANSCRIPTION_TRANSCRIPTION_PROVIDER=speech_to_text
+      - TRANSCRIPTION_NOTIFICATION_PROVIDER=email
+    networks:
+      - api-network
+    restart: unless-stopped
+
+  # Webhook API
+  webhook-api:
+    build:
+      context: .
+      dockerfile: deploy/docker/images/api/webhook-api.Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - WEBHOOK_ENVIRONMENT=production
+      - WEBHOOK_JOB_RUNNER=cloud_run
+      - WEBHOOK_STORAGE_PROVIDER=gcs
+      - WEBHOOK_TRANSCRIPTION_PROVIDER=speech_to_text
+      - WEBHOOK_NOTIFICATION_PROVIDER=email
+    networks:
+      - api-network
+    restart: unless-stopped
+
+  # Orchestration API
+  orchestration-api:
+    build:
+      context: .
+      dockerfile: deploy/docker/images/api/orchestration-api.Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - ORCHESTRATION_ENVIRONMENT=production
+      - ORCHESTRATION_JOB_RUNNER=cloud_run
+      - ORCHESTRATION_STORAGE_PROVIDER=gcs
+      - ORCHESTRATION_TRANSCRIPTION_PROVIDER=speech_to_text
+      - ORCHESTRATION_NOTIFICATION_PROVIDER=email
+    networks:
+      - api-network
+    restart: unless-stopped
+
+networks:
+  api-network:
+    driver: bridge
+
+volumes:
+  api-data:
+    driver: local

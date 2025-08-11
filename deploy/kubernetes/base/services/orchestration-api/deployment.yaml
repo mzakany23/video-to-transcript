@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestration-api
+  namespace: endpoints
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: orchestration-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: orchestration-api
+    spec:
+      containers:
+      - name: orchestration-api
+        image: transcripts/orchestration-api:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: ENVIRONMENT
+          value: "development"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: JOB_RUNNER
+          value: "argo-workflows"
+        - name: ARGO_WORKFLOWS_NAMESPACE
+          value: "argo-workflows"
+        - name: ARGO_WORKFLOWS_SERVER
+          value: "argo-server.argo-workflows.svc.cluster.local:2746"
+        envFrom:
+        - configMapRef:
+            name: orchestration-config
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5

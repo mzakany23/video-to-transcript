@@ -1,0 +1,107 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: transcripts-ci-cd
+  namespace: argo-workflows
+spec:
+  entrypoint: build-test-deploy
+  arguments:
+    parameters:
+    - name: git-repo
+      value: "https://github.com/your-org/transcripts.git"
+    - name: git-revision
+      value: "main"
+    - name: service-name
+      value: "gateway"
+    - name: image-tag
+      value: "latest"
+  templates:
+  - name: build-test-deploy
+    steps:
+    - - name: checkout
+        template: git-checkout
+    - - name: build-image
+        template: docker-build
+      - name: run-tests
+        template: run-tests
+    - - name: deploy-to-cluster
+        template: deploy-service
+        when: "{{steps.run-tests.outputs.result}} == 'success'"
+
+  - name: git-checkout
+    container:
+      image: alpine/git:latest
+      command: [sh, -c]
+      args:
+      - |
+        git clone {{workflow.parameters.git-repo}} /workspace
+        cd /workspace && git checkout {{workflow.parameters.git-revision}}
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+
+  - name: docker-build
+    container:
+      image: gcr.io/kaniko-project/executor:latest
+      command: [/kaniko/executor]
+      args:
+      - --dockerfile=/workspace/deploy/docker/images/api/{{workflow.parameters.service-name}}.Dockerfile
+      - --context=/workspace
+      - --destination=transcripts/{{workflow.parameters.service-name}}:{{workflow.parameters.image-tag}}
+      - --cache=true
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+
+  - name: run-tests
+    container:
+      image: python:3.11-slim
+      command: [sh, -c]
+      args:
+      - |
+        cd /workspace
+        pip install -r requirements/dev.txt
+        python -m pytest tests/ -v --tb=short
+        echo "success" > /tmp/test-result
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+    outputs:
+      parameters:
+      - name: result
+        valueFrom:
+          path: /tmp/test-result
+
+  - name: deploy-service
+    resource:
+      action: apply
+      manifest: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: {{workflow.parameters.service-name}}
+          namespace: endpoints
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: {{workflow.parameters.service-name}}
+          template:
+            metadata:
+              labels:
+                app: {{workflow.parameters.service-name}}
+            spec:
+              containers:
+              - name: {{workflow.parameters.service-name}}
+                image: transcripts/{{workflow.parameters.service-name}}:{{workflow.parameters.image-tag}}
+                ports:
+                - containerPort: 8000
+
+  volumeClaimTemplates:
+  - metadata:
+      name: workspace
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi

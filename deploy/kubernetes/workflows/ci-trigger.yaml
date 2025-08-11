@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: build-transcripts-v2-
+  namespace: argo-workflows
+spec:
+  entrypoint: build-and-deploy
+  arguments:
+    parameters:
+    - name: git-url
+      value: "https://github.com/yourusername/transcripts.git"  # Update with your repo
+    - name: git-revision
+      value: "migration-to-modularity"
+      
+  templates:
+  - name: build-and-deploy
+    steps:
+    - - name: build-images
+        templateRef:
+          name: build-and-push-images
+          template: build-all-images
+    - - name: update-manifests
+        template: update-image-tags
+        arguments:
+          parameters:
+          - name: new-tag
+            value: "{{steps.build-images.outputs.parameters.image-tag}}"
+
+  - name: update-image-tags
+    inputs:
+      parameters:
+      - name: new-tag
+    script:
+      image: alpine/git:latest
+      command: [sh]
+      source: |
+        echo "Would update Kubernetes manifests with new image tag: {{inputs.parameters.new-tag}}"
+        echo "In a full GitOps setup, this would:"
+        echo "1. Clone the config repo"  
+        echo "2. Update image tags in Kustomization overlays"
+        echo "3. Commit and push changes"
+        echo "4. ArgoCD would detect and sync the changes"

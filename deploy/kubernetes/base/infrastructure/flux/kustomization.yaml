@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: flux
+
+resources:
+  - namespace.yaml
+  - source-controller.yaml
+  - kustomize-controller.yaml
+  - helm-controller.yaml
+  - notification-controller.yaml
+  - image-reflector-controller.yaml
+  - image-automation-controller.yaml
+  - flux-rbac.yaml
+  - git-repository.yaml
+  - kustomization-sync.yaml
+
+commonLabels:
+  app.kubernetes.io/component: flux
+  app.kubernetes.io/name: flux-system

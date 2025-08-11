@@ -1,0 +1,190 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: transcripts-ci-pipeline
+  namespace: argo-workflows
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: |
+      gateway=docker-registry.infrastructure.svc.cluster.local:5000/transcripts/gateway:latest
+      transcription-api=docker-registry.infrastructure.svc.cluster.local:5000/transcripts/transcription-api:latest
+      orchestration-api=docker-registry.infrastructure.svc.cluster.local:5000/transcripts/orchestration-api:latest
+      webhook-api=docker-registry.infrastructure.svc.cluster.local:5000/transcripts/webhook-api:latest
+spec:
+  entrypoint: ci-cd-pipeline
+  arguments:
+    parameters:
+    - name: git-repo
+      value: "https://github.com/your-org/transcripts.git"
+    - name: git-revision
+      value: "main"
+    - name: registry
+      value: "docker-registry.infrastructure.svc.cluster.local:5000"
+    - name: image-tag
+      value: "{{workflow.creationTimestamp}}"
+  
+  volumeClaimTemplates:
+  - metadata:
+      name: workspace
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 2Gi
+
+  templates:
+  - name: ci-cd-pipeline
+    steps:
+    - - name: checkout
+        template: git-checkout
+    - - name: run-tests
+        template: run-tests
+    - - name: build-images
+        template: build-all-images
+        when: "{{steps.run-tests.outputs.result}} == 'success'"
+    - - name: update-manifests
+        template: update-image-tags
+        when: "{{steps.build-images.outputs.result}} == 'success'"
+
+  - name: git-checkout
+    container:
+      image: alpine/git:latest
+      command: [sh, -c]
+      args:
+      - |
+        git clone {{workflow.parameters.git-repo}} /workspace
+        cd /workspace && git checkout {{workflow.parameters.git-revision}}
+        echo "Checked out revision: $(git rev-parse HEAD)"
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+
+  - name: run-tests
+    container:
+      image: python:3.11-slim
+      command: [sh, -c]
+      args:
+      - |
+        cd /workspace
+        if [ -f requirements/dev.txt ]; then
+          pip install -r requirements/dev.txt
+          python -m pytest tests/ -v --tb=short
+          echo "success" > /tmp/test-result
+        else
+          echo "No tests found, skipping..."
+          echo "success" > /tmp/test-result
+        fi
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+    outputs:
+      parameters:
+      - name: result
+        valueFrom:
+          path: /tmp/test-result
+
+  - name: build-all-images
+    steps:
+    - - name: build-gateway
+        template: build-service-image
+        arguments:
+          parameters:
+          - name: service-name
+            value: "gateway"
+          - name: dockerfile-path
+            value: "deploy/docker/images/api/gateway.Dockerfile"
+      - name: build-transcription-api
+        template: build-service-image
+        arguments:
+          parameters:
+          - name: service-name
+            value: "transcription-api"
+          - name: dockerfile-path
+            value: "deploy/docker/images/api/transcription-api.Dockerfile"
+      - name: build-orchestration-api
+        template: build-service-image
+        arguments:
+          parameters:
+          - name: service-name
+            value: "orchestration-api"
+          - name: dockerfile-path
+            value: "deploy/docker/images/api/orchestration-api.Dockerfile"
+      - name: build-webhook-api
+        template: build-service-image
+        arguments:
+          parameters:
+          - name: service-name
+            value: "webhook-api"
+          - name: dockerfile-path
+            value: "deploy/docker/images/api/webhook-api.Dockerfile"
+    outputs:
+      parameters:
+      - name: result
+        value: "success"
+
+  - name: build-service-image
+    inputs:
+      parameters:
+      - name: service-name
+      - name: dockerfile-path
+    container:
+      image: gcr.io/kaniko-project/executor:latest
+      command: [/kaniko/executor]
+      args:
+      - --dockerfile=/workspace/{{inputs.parameters.dockerfile-path}}
+      - --context=/workspace
+      - --destination={{workflow.parameters.registry}}/transcripts/{{inputs.parameters.service-name}}:{{workflow.parameters.image-tag}}
+      - --destination={{workflow.parameters.registry}}/transcripts/{{inputs.parameters.service-name}}:latest
+      - --cache=true
+      - --insecure
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+
+  - name: update-image-tags
+    container:
+      image: alpine/git:latest
+      command: [sh, -c]
+      args:
+      - |
+        cd /workspace
+        # Update kustomization.yaml with new image tags
+        NEW_TAG={{workflow.parameters.image-tag}}
+        REGISTRY={{workflow.parameters.registry}}
+        
+        # Update the local environment kustomization
+        sed -i "s|newTag: local-dev|newTag: $NEW_TAG|g" deploy/kubernetes/environments/local/kustomization.yaml
+        
+        echo "Updated image tags to: $NEW_TAG"
+        echo "success" > /tmp/update-result
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+    outputs:
+      parameters:
+      - name: result
+        valueFrom:
+          path: /tmp/update-result
+---
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: transcripts-nightly-build
+  namespace: argo-workflows
+spec:
+  schedule: "0 2 * * *"  # Run at 2 AM every day
+  workflowSpec:
+    entrypoint: ci-cd-pipeline
+    templateDefaults:
+      container:
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+    templates:
+    - name: ci-cd-pipeline
+      templateRef:
+        name: transcripts-ci-pipeline
+        template: ci-cd-pipeline

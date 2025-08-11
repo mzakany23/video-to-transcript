@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: source-controller
+  namespace: flux-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: source-controller
+  template:
+    metadata:
+      labels:
+        app: source-controller
+    spec:
+      containers:
+      - name: manager
+        image: ghcr.io/fluxcd/source-controller:v1.2.3
+        args:
+        - --events-addr=http://notification-controller.flux-system.svc.cluster.local.
+        - --watch-all-namespaces=true
+        - --log-level=info
+        - --log-encoding=json
+        - --enable-leader-election
+        env:
+        - name: RUNTIME_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9440
+          name: http-prom
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+        volumeMounts:
+        - name: temp
+          mountPath: /tmp
+        - name: data
+          mountPath: /data
+      serviceAccountName: source-controller
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: temp
+        emptyDir: {}
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: source-controller
+  namespace: flux-system
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: source-controller
+  type: ClusterIP
