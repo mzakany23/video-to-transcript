@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/michaelzakany/transcripts.git'
-    targetRevision: migration-to-modularity  # v2 branch - keep main frozen for v1
+    targetRevision: v2  # v2 branch - keep main frozen for v1
     path: deploy/kubernetes/environments/local
   destination:
     server: 'https://kubernetes.default.svc'
@@ -28,7 +28,7 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/michaelzakany/transcripts.git'
-    targetRevision: migration-to-modularity  # v2 branch - keep main frozen for v1
+    targetRevision: v2  # v2 branch - keep main frozen for v1
     path: deploy/kubernetes/workflows
   destination:
     server: 'https://kubernetes.default.svc'
