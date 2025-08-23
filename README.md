@@ -51,11 +51,11 @@ uv run backfill.py
 
 ## How It Works
 
-1. ** Upload**: Drop audio/video files into Dropbox folder
-2. ** Webhook**: Dropbox notifies our webhook service instantly
-3. ** Processing**: Cloud Run worker downloads, compresses if needed, and transcribes
-4. ** Results**: JSON (with timestamps) and TXT files uploaded back to Dropbox
-5. ** Done**: Transcripts appear in processed folder automatically
+1. **Upload**: Drop audio/video files into Dropbox folder
+2. **Webhook**: Dropbox notifies our webhook service instantly
+3. **Processing**: Cloud Run worker downloads, compresses if needed, and transcribes
+4. **Results**: JSON (with timestamps) and TXT files uploaded back to Dropbox
+5. **Done**: Transcripts appear in processed folder automatically
 
 ## Architecture
 
