@@ -8,7 +8,11 @@ region     = "us-east1"
 dropbox_access_token = "your-dropbox-access-token"
 dropbox_app_secret   = "your-dropbox-app-secret"
 
+# Dropbox folder paths (optional - defaults shown)
+# dropbox_raw_folder       = "/raw"
+# dropbox_processed_folder = "/processed"
+
 # Gmail notification settings
 gmail_address      = "your-email@gmail.com"
 gmail_app_password = "your-16-char-app-password"  # From Google App Passwords
-notification_email = "recipient@example.com"      # Email to receive notifications
+notification_emails = ["recipient@example.com"]   # List of emails to receive notifications

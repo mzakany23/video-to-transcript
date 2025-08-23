@@ -40,6 +40,18 @@ variable "notification_emails" {
   type        = list(string)
 }
 
+variable "dropbox_raw_folder" {
+  description = "Dropbox folder path for raw audio files"
+  type        = string
+  default     = "/raw"
+}
+
+variable "dropbox_processed_folder" {
+  description = "Dropbox folder path for processed transcriptions"
+  type        = string
+  default     = "/processed"
+}
+
 # Enable required APIs
 resource "google_project_service" "required_apis" {
   for_each = toset([
@@ -200,12 +212,12 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
 
         env {
           name  = "DROPBOX_RAW_FOLDER"
-          value = "/jos-transcripts/raw"
+          value = var.dropbox_raw_folder
         }
 
         env {
           name  = "DROPBOX_PROCESSED_FOLDER"
-          value = "/jos-transcripts/processed"
+          value = var.dropbox_processed_folder
         }
 
         resources {
@@ -274,8 +286,8 @@ resource "google_cloudfunctions2_function" "webhook_handler" {
       PROJECT_ID               = var.project_id
       GCP_REGION               = var.region
       WORKER_JOB_NAME          = google_cloud_run_v2_job.transcription_processor.name
-      DROPBOX_RAW_FOLDER       = "/jos-transcripts/raw"
-      DROPBOX_PROCESSED_FOLDER = "/jos-transcripts/processed"
+      DROPBOX_RAW_FOLDER       = var.dropbox_raw_folder
+      DROPBOX_PROCESSED_FOLDER = var.dropbox_processed_folder
     }
 
     secret_environment_variables {
