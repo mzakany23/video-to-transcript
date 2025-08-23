@@ -52,6 +52,25 @@ variable "dropbox_processed_folder" {
   default     = "/processed"
 }
 
+variable "openai_api_key" {
+  description = "OpenAI API key for transcription"
+  type        = string
+  sensitive   = true
+}
+
+variable "dropbox_refresh_token" {
+  description = "Dropbox OAuth refresh token"
+  type        = string
+  sensitive   = true
+  default     = ""  # Optional - only needed for OAuth flow
+}
+
+variable "dropbox_app_key" {
+  description = "Dropbox app key"
+  type        = string
+  default     = ""  # Optional - only needed for OAuth flow
+}
+
 # Enable required APIs
 resource "google_project_service" "required_apis" {
   for_each = toset([
@@ -113,6 +132,11 @@ resource "google_secret_manager_secret" "openai_key" {
   depends_on = [google_project_service.required_apis]
 }
 
+resource "google_secret_manager_secret_version" "openai_key" {
+  secret      = google_secret_manager_secret.openai_key.id
+  secret_data = var.openai_api_key
+}
+
 # Store Gmail credentials in Secret Manager
 resource "google_secret_manager_secret" "gmail_credentials" {
   project   = var.project_id
@@ -133,6 +157,43 @@ resource "google_secret_manager_secret_version" "gmail_credentials" {
     smtp_server  = "smtp.gmail.com"
     smtp_port    = 587
   })
+}
+
+# Optional: Dropbox OAuth tokens (only create if provided)
+resource "google_secret_manager_secret" "dropbox_refresh_token" {
+  count     = var.dropbox_refresh_token != "" ? 1 : 0
+  project   = var.project_id
+  secret_id = "dropbox-refresh-token"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "dropbox_refresh_token" {
+  count       = var.dropbox_refresh_token != "" ? 1 : 0
+  secret      = google_secret_manager_secret.dropbox_refresh_token[0].id
+  secret_data = var.dropbox_refresh_token
+}
+
+resource "google_secret_manager_secret" "dropbox_app_key" {
+  count     = var.dropbox_app_key != "" ? 1 : 0
+  project   = var.project_id
+  secret_id = "dropbox-app-key"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "dropbox_app_key" {
+  count       = var.dropbox_app_key != "" ? 1 : 0
+  secret      = google_secret_manager_secret.dropbox_app_key[0].id
+  secret_data = var.dropbox_app_key
 }
 
 # Service account for Cloud Run jobs

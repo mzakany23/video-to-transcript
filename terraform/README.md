@@ -2,6 +2,10 @@
 
 This directory contains Terraform configuration to automatically set up Google Cloud Platform resources for an automated audio transcription pipeline that monitors Dropbox folders and sends email notifications.
 
+**Note**: This is not a fully automated deployment. You'll need to:
+1. Build and push the Docker container for the worker before running Terraform
+2. Provide all API keys and tokens in terraform.tfvars
+
 ## Prerequisites
 
 1. **Install Terraform**:
@@ -12,7 +16,7 @@ This directory contains Terraform configuration to automatically set up Google C
    # Or download from: https://terraform.io/downloads
    ```
 
-2. **Install Google Cloud CLI**:
+2. **Install Google Cloud CLI** (needed for authentication and Docker push):
    ```bash
    # macOS
    brew install google-cloud-sdk
@@ -22,7 +26,14 @@ This directory contains Terraform configuration to automatically set up Google C
    gcloud auth application-default login
    ```
 
-3. **Set up GCP Project**:
+3. **Install Docker** (needed to build worker container):
+   ```bash
+   # macOS
+   brew install docker
+   # Or download Docker Desktop from: https://www.docker.com/products/docker-desktop
+   ```
+
+4. **Set up GCP Project**:
    ```bash
    # Create project (if needed)
    gcloud projects create YOUR-PROJECT-ID
@@ -36,23 +47,34 @@ This directory contains Terraform configuration to automatically set up Google C
 
 ## Setup
 
-1. **Configure variables**:
+1. **Build and push the worker container** (must be done before Terraform):
+   ```bash
+   # Configure Docker for GCR
+   gcloud auth configure-docker
+   
+   # Build and push the container
+   docker buildx build --platform linux/amd64 \
+     -t gcr.io/YOUR-PROJECT-ID/transcription-worker:latest \
+     ../worker/ --push
+   ```
+
+2. **Configure variables**:
    ```bash
    cp terraform.tfvars.example terraform.tfvars
    # Edit terraform.tfvars with your project details
    ```
 
-2. **Initialize Terraform**:
+3. **Initialize Terraform**:
    ```bash
    terraform init
    ```
 
-3. **Plan deployment**:
+4. **Plan deployment**:
    ```bash
    terraform plan
    ```
 
-4. **Deploy infrastructure**:
+5. **Deploy infrastructure**:
    ```bash
    terraform apply
    ```
@@ -79,10 +101,21 @@ region     = "us-east1"  # or your preferred region
 dropbox_access_token = "your-dropbox-access-token"
 dropbox_app_secret   = "your-dropbox-app-secret"
 
+# Optional: Dropbox OAuth (if using OAuth flow instead of access token)
+dropbox_refresh_token = "your-dropbox-refresh-token"  # Optional
+dropbox_app_key      = "your-dropbox-app-key"        # Optional
+
+# OpenAI Configuration
+openai_api_key = "your-openai-api-key"
+
 # Gmail Configuration
 gmail_address      = "your-email@gmail.com"
 gmail_app_password = "your-16-char-app-password"
 notification_emails = ["recipient@example.com"]
+
+# Optional: Custom folder paths (defaults shown)
+# dropbox_raw_folder       = "/raw"
+# dropbox_processed_folder = "/processed"
 ```
 
 ## Adding Email Notification Recipients
