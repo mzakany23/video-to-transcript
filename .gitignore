@@ -73,3 +73,15 @@ webhook_info.json
 
 # Test files
 test_*.py
+
+# Claude Code
+.claude/
+
+# Coverage reports
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+.pytest_cache/
+coverage.xml
+*.lcov
