@@ -43,10 +43,7 @@ cd worker/
 uv sync
 uv run main.py
 
-# CLI tools
-cd cli/
-uv sync
-uv run backfill.py
+
 ```
 
 ## How It Works
@@ -95,10 +92,7 @@ transcripts/
 │   ├── src/transcripts/        # Core transcription logic
 │   ├── main.py                 # Processes files
 │   └── Dockerfile              # Container image
-├── cli/                         # CLI tools
-│   ├── pyproject.toml          # CLI dependencies
-│   └── backfill.py             # Process existing files
-├── templates/                   # Shared output templates
+
 ├── terraform/                   # Infrastructure as Code
 └── tests/                       # Integration tests
 ```
