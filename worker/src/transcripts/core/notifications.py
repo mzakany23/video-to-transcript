@@ -20,7 +20,8 @@ class EmailNotificationService:
         """Initialize email notification service with Gmail credentials from Secret Manager"""
         self.project_id = project_id
         self.enabled = Config.ENABLE_EMAIL_NOTIFICATIONS
-        self.recipient_email = Config.NOTIFICATION_EMAIL
+        # Parse comma-separated email list
+        self.recipient_emails = [email.strip() for email in Config.NOTIFICATION_EMAIL.split(',') if email.strip()]
         
         if not self.enabled:
             print("📧 Email notifications disabled")
@@ -70,7 +71,7 @@ class EmailNotificationService:
         message = MIMEMultipart("alternative")
         message["Subject"] = "🎬 Transcription Job Complete"
         message["From"] = self.sender_email
-        message["To"] = self.recipient_email
+        message["To"] = ", ".join(self.recipient_emails)
         
         # Extract job details
         processed = job_summary.get('processed_count', 0)
@@ -184,7 +185,7 @@ This is an automated notification from your transcription pipeline.
         message = MIMEMultipart("alternative")
         message["Subject"] = "🚨 Transcription Job Error"
         message["From"] = self.sender_email
-        message["To"] = self.recipient_email
+        message["To"] = ", ".join(self.recipient_emails)
         
         # Create HTML content
         html_content = f"""
@@ -266,16 +267,16 @@ Please check the system logs for more details.
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()  # Enable TLS encryption
                 server.login(self.sender_email, self.app_password)
-                server.sendmail(self.sender_email, self.recipient_email, message.as_string())
-            
-            print(f"📧 Email notification sent to {self.recipient_email}")
+                server.sendmail(self.sender_email, self.recipient_emails, message.as_string())
+
+            print(f"📧 Email notification sent to {', '.join(self.recipient_emails)}")
             return True
-            
+
         except smtplib.SMTPAuthenticationError:
             print("❌ Gmail authentication failed. Check your app password.")
             return False
-        except smtplib.SMTPRecipientsRefused:
-            print(f"❌ Recipient email {self.recipient_email} was refused by the server.")
+        except smtplib.SMTPRecipientsRefused as e:
+            print(f"❌ Recipient emails {', '.join(self.recipient_emails)} were refused by the server: {e}")
             return False
         except smtplib.SMTPException as e:
             print(f"❌ SMTP error occurred: {e}")
@@ -303,20 +304,139 @@ Please check the system logs for more details.
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()  # Enable TLS encryption
                 server.login(self.sender_email, self.app_password)
-                server.sendmail(self.sender_email, self.recipient_email, message.as_string())
-            
-            print(f"📧 Error email notification sent to {self.recipient_email}")
+                server.sendmail(self.sender_email, self.recipient_emails, message.as_string())
+
+            print(f"📧 Error email notification sent to {', '.join(self.recipient_emails)}")
             return True
-            
+
         except smtplib.SMTPAuthenticationError:
             print("❌ Gmail authentication failed. Check your app password.")
             return False
-        except smtplib.SMTPRecipientsRefused:
-            print(f"❌ Recipient email {self.recipient_email} was refused by the server.")
+        except smtplib.SMTPRecipientsRefused as e:
+            print(f"❌ Recipient emails {', '.join(self.recipient_emails)} were refused by the server: {e}")
             return False  
         except smtplib.SMTPException as e:
             print(f"❌ SMTP error occurred: {e}")
             return False
         except Exception as e:
             print(f"❌ Failed to send error email notification: {str(e)}")
+            return False
+
+    def _create_job_start_email(self, file_info: Dict[str, Any]) -> MIMEMultipart:
+        """Create a professional job start email"""
+        message = MIMEMultipart("alternative")
+        message["Subject"] = "🚀 Transcription Job Started"
+        message["From"] = self.sender_email
+        message["To"] = ", ".join(self.recipient_emails)
+
+        # Extract file details
+        file_name = file_info.get('file_name', 'Unknown')
+        file_size_mb = file_info.get('file_size_mb', 0)
+
+        # Create HTML content
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .container {{ max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; }}
+                .header {{ background-color: #2196F3; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }}
+                .file-info {{ background-color: white; padding: 15px; border-radius: 4px; margin: 20px 0; }}
+                .info-item {{ display: flex; justify-content: space-between; margin: 10px 0; }}
+                .footer {{ color: #666; font-size: 12px; margin-top: 20px; text-align: center; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🚀 Transcription Job Started</h1>
+                </div>
+                <div class="content">
+                    <p>A new transcription job has been triggered for your file.</p>
+
+                    <div class="file-info">
+                        <div class="info-item">
+                            <strong>File Name:</strong>
+                            <span>{file_name}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>File Size:</strong>
+                            <span>{file_size_mb:.1f} MB</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Started At:</strong>
+                            <span>{datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</span>
+                        </div>
+                    </div>
+
+                    <p>You'll receive another email when the transcription is complete.</p>
+
+                    <div class="footer">
+                        <p>This is an automated notification from your transcription pipeline.</p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        # Create plain text version
+        text_content = f"""
+🚀 Transcription Job Started
+
+A new transcription job has been triggered for your file.
+
+📄 File Name: {file_name}
+📊 File Size: {file_size_mb:.1f} MB
+🕐 Started At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+You'll receive another email when the transcription is complete.
+
+This is an automated notification from your transcription pipeline.
+        """
+
+        # Attach both HTML and text versions
+        html_part = MIMEText(html_content, "html")
+        text_part = MIMEText(text_content, "plain")
+        message.attach(text_part)
+        message.attach(html_part)
+
+        return message
+
+    def send_job_start(self, file_info: Dict[str, Any]) -> bool:
+        """
+        Send email notification for job start
+
+        Args:
+            file_info: Dictionary containing file details (file_name, file_size_mb)
+
+        Returns:
+            bool: True if notification sent successfully
+        """
+        if not self.enabled:
+            return False
+
+        try:
+            message = self._create_job_start_email(file_info)
+
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls()  # Enable TLS encryption
+                server.login(self.sender_email, self.app_password)
+                server.sendmail(self.sender_email, self.recipient_emails, message.as_string())
+
+            print(f"📧 Job start email sent to {', '.join(self.recipient_emails)}")
+            return True
+
+        except smtplib.SMTPAuthenticationError:
+            print("❌ Gmail authentication failed. Check your app password.")
+            return False
+        except smtplib.SMTPRecipientsRefused as e:
+            print(f"❌ Recipient emails {', '.join(self.recipient_emails)} were refused by the server: {e}")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"❌ SMTP error occurred: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Failed to send job start email notification: {str(e)}")
             return False

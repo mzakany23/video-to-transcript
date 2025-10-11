@@ -18,10 +18,30 @@ from google.cloud import secretmanager, storage
 from openai import OpenAI
 import ffmpeg
 
-# Import Dropbox handler from our src package
+# Import from our src package
 sys.path.append('src')
 from transcripts.core.dropbox_handler import DropboxHandler
 from transcripts.core.notifications import EmailNotificationService
+from transcripts.core.audio_chunker import AudioChunker
+
+# Initialize Sentry for error tracking
+try:
+    import sentry_sdk
+    sentry_dsn = os.environ.get('SENTRY_DSN')
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+            environment=os.environ.get('SENTRY_ENVIRONMENT', 'production'),
+            release=os.environ.get('SENTRY_RELEASE', 'transcripts-worker@1.1.0')
+        )
+        print("✅ Sentry error tracking initialized")
+    else:
+        print("ℹ️ Sentry DSN not configured, error tracking disabled")
+except ImportError:
+    print("⚠️ Sentry SDK not installed, error tracking disabled")
+except Exception as e:
+    print(f"⚠️ Failed to initialize Sentry: {e}")
 
 
 def main():
@@ -118,7 +138,7 @@ class TranscriptionJobProcessor:
         print(f"🎯 Processing single file: {file_name} at {file_path}")
         job_start_time = time.time()
         failed_files = []
-        
+
         try:
             # Create file info structure
             file_info = {
@@ -128,7 +148,13 @@ class TranscriptionJobProcessor:
                 'size': 0,  # Will be determined during download
                 'modified': datetime.now().isoformat()
             }
-            
+
+            # Send job start notification
+            self.notification_service.send_job_start({
+                'file_name': file_name,
+                'file_size_mb': 0  # Unknown at this point
+            })
+
             # Process the file
             result = self.process_file(file_info)
             
@@ -340,13 +366,18 @@ class TranscriptionJobProcessor:
             
             # Process audio based on file type
             audio_file_path = self._prepare_audio_file(temp_file_path, file_name)
-            
+
             if not audio_file_path:
                 return {'success': False, 'error': 'Failed to prepare audio file'}
-            
-            # Transcribe using OpenAI Whisper
-            transcript_result = self._transcribe_audio(audio_file_path)
-            
+
+            # Check if file needs chunking
+            if AudioChunker.should_chunk_file(audio_file_path):
+                print(f"📦 File is large, using chunked transcription")
+                transcript_result = self._transcribe_audio_chunked(audio_file_path)
+            else:
+                # Transcribe using OpenAI Whisper (single file)
+                transcript_result = self._transcribe_audio(audio_file_path)
+
             if not transcript_result.get('success'):
                 return transcript_result
             
@@ -457,14 +488,14 @@ class TranscriptionJobProcessor:
         try:
             file_size = audio_file_path.stat().st_size
             print(f"🎙️ Transcribing audio file: {file_size / 1024 / 1024:.1f}MB")
-            
+
             with open(audio_file_path, 'rb') as audio_file:
                 transcript = self.openai_client.audio.transcriptions.create(
                     file=audio_file,
                     model='whisper-1',
                     response_format='verbose_json'
                 )
-                
+
                 # Process segments
                 segments = getattr(transcript, 'segments', [])
                 if segments:
@@ -477,7 +508,7 @@ class TranscriptionJobProcessor:
                         }
                         for i, segment in enumerate(segments)
                     ]
-                
+
                 transcript_data = {
                     'text': transcript.text,
                     'segments': segments,
@@ -486,12 +517,83 @@ class TranscriptionJobProcessor:
                     'processed_at': datetime.now().isoformat(),
                     'model': 'whisper-1'
                 }
-                
+
                 print(f"✅ Transcription completed: {len(transcript.text)} characters")
                 return {'success': True, 'transcript_data': transcript_data}
-                
+
         except Exception as e:
             print(f"❌ Error transcribing audio: {str(e)}")
+            return {'success': False, 'error': str(e)}
+
+    def _transcribe_audio_chunked(self, audio_file_path: Path) -> Dict[str, Any]:
+        """Transcribe large audio file by splitting into chunks"""
+        try:
+            print(f"📦 Starting chunked transcription for {audio_file_path.name}")
+
+            # Split audio into chunks
+            chunk_paths = AudioChunker.split_audio_into_chunks(audio_file_path, chunk_duration_minutes=10)
+
+            if not chunk_paths:
+                return {'success': False, 'error': 'Failed to split audio into chunks'}
+
+            # Transcribe each chunk
+            chunk_transcripts = []
+            for i, chunk_path in enumerate(chunk_paths):
+                print(f"🎙️ Transcribing chunk {i+1}/{len(chunk_paths)}")
+
+                # Transcribe this chunk
+                with open(chunk_path, 'rb') as audio_file:
+                    transcript = self.openai_client.audio.transcriptions.create(
+                        file=audio_file,
+                        model='whisper-1',
+                        response_format='verbose_json'
+                    )
+
+                    # Process segments
+                    segments = getattr(transcript, 'segments', [])
+                    if segments:
+                        segments = [
+                            {
+                                'id': getattr(segment, 'id', j),
+                                'start': getattr(segment, 'start', 0),
+                                'end': getattr(segment, 'end', 0),
+                                'text': getattr(segment, 'text', ''),
+                            }
+                            for j, segment in enumerate(segments)
+                        ]
+
+                    chunk_transcript = {
+                        'text': transcript.text,
+                        'segments': segments,
+                        'language': getattr(transcript, 'language', 'unknown'),
+                        'duration': getattr(transcript, 'duration', 0),
+                        'processed_at': datetime.now().isoformat(),
+                        'model': 'whisper-1'
+                    }
+
+                    chunk_transcripts.append(chunk_transcript)
+                    print(f"✅ Chunk {i+1} completed: {len(transcript.text)} characters")
+
+            # Merge all chunk transcriptions
+            merged_transcript = AudioChunker.merge_transcriptions(
+                chunk_transcripts,
+                audio_file_path.name
+            )
+
+            # Cleanup temporary chunk files
+            AudioChunker.cleanup_chunks(chunk_paths)
+
+            print(f"✅ Chunked transcription completed: {len(merged_transcript.get('text', ''))} total characters")
+            return {'success': True, 'transcript_data': merged_transcript}
+
+        except Exception as e:
+            print(f"❌ Error in chunked transcription: {str(e)}")
+            # Cleanup on error
+            try:
+                if 'chunk_paths' in locals():
+                    AudioChunker.cleanup_chunks(chunk_paths)
+            except:
+                pass
             return {'success': False, 'error': str(e)}
     
 

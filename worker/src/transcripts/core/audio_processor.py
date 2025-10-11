@@ -45,8 +45,8 @@ class AudioProcessor:
             return None
     
     @staticmethod
-    def _extract_and_compress_audio(input_path: Path, max_size_mb: int = 24) -> Optional[Path]:
-        """Extract audio-only and compress aggressively"""
+    def _extract_and_compress_audio(input_path: Path, max_size_mb: int = 19) -> Optional[Path]:
+        """Extract audio-only and compress aggressively (target 19MB for safety margin)"""
         try:
             audio_path = input_path.parent / f"audio_only_{input_path.stem}.mp3"
             
