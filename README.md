@@ -103,6 +103,40 @@ transcripts/
 
 **Important**: All deployment is managed through Terraform. Do NOT use individual gcloud commands - they will be overwritten.
 
+### CI/CD Pipeline (Recommended)
+
+This project includes GitHub Actions workflows for automated deployment:
+
+**Automatic Deployments:**
+- ✅ **Worker changes** (`worker/`) → Auto-build and deploy Docker image
+- ✅ **Webhook changes** (`webhook/`) → Auto-deploy via Terraform
+- ✅ **Infrastructure changes** (`terraform/`) → Auto-apply Terraform
+- ✅ **PR checks** → Validate code, Terraform, and Docker builds
+
+**Setup (One-time):**
+
+1. **Configure Workload Identity Federation** (no service account keys needed!):
+   ```bash
+   # Edit .github/setup-workload-identity.sh and update GITHUB_REPO
+   vim .github/setup-workload-identity.sh
+
+   # Run setup script
+   ./.github/setup-workload-identity.sh
+   ```
+
+2. **Add GitHub Secrets** (from script output):
+   - Go to: `https://github.com/YOUR_USERNAME/transcripts/settings/secrets/actions`
+   - Add: `WIF_PROVIDER` (Workload Identity Provider path)
+   - Add: `WIF_SERVICE_ACCOUNT` (Service account email)
+
+3. **Push to main** → Automatic deployment! 🚀
+
+**📚 Detailed CI/CD documentation:** See [.github/CICD.md](.github/CICD.md)
+
+### Manual Deployment (Alternative)
+
+If you prefer manual deployment or need to deploy locally:
+
 ### Initial Setup (One Time)
 
 1. **Configure Docker for Google Container Registry**:
