@@ -85,4 +85,4 @@ htmlcov/
 .pytest_cache/
 coverage.xml
 *.lcov
-.github
+# .github - removed to allow workflows

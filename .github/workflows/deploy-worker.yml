@@ -1,0 +1,72 @@
+name: Deploy Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'worker/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  PROJECT_ID: jos-transcripts
+  REGION: us-east1
+  IMAGE_NAME: transcription-worker
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write # Required for Workload Identity Federation
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./worker
+          push: true
+          tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest,gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Cloud Run Job
+        run: |
+          gcloud run jobs update ${{ env.IMAGE_NAME }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }}
+
+      - name: Verify deployment
+        run: |
+          gcloud run jobs describe ${{ env.IMAGE_NAME }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --format='get(status.latestCreatedExecution.name)'
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Worker deployed successfully!"
+          echo "Image: gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
