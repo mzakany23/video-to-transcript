@@ -2,6 +2,26 @@
 
 Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload files to Dropbox, get transcripts automatically.
 
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Development](#development)
+- [Versioning](#versioning)
+- [How It Works](#how-it-works)
+- [Architecture](#architecture)
+- [Output Files](#output-files)
+- [Supported File Formats](#supported-file-formats)
+- [Project Structure](#project-structure)
+- [Deployment](#deployment)
+  - [CI/CD Pipeline (Recommended)](#cicd-pipeline-recommended)
+  - [Making a New Deployment](#making-a-new-deployment)
+  - [Manual Deployment (Alternative)](#manual-deployment-alternative)
+  - [Environment Variables](#environment-variables)
+  - [Optional: Sentry Error Tracking](#optional-sentry-error-tracking)
+  - [Monitoring](#monitoring)
+- [Troubleshooting](#troubleshooting)
+
 ## Features
 - **Webhook-based Processing**: Automatic transcription when files are uploaded
 - **Large File Support**: Handles files of ANY size with automatic chunking (splits files >20MB)
@@ -58,15 +78,17 @@ This project uses **independent semantic versioning** for webhook and worker ser
 **Version control:**
 - Each service has its own `CHANGELOG.md` in its directory ([webhook/CHANGELOG.md](webhook/CHANGELOG.md), [worker/CHANGELOG.md](worker/CHANGELOG.md))
 - Git tags follow the pattern `{service}-v{semver}` (e.g., `webhook-v1.2.0`)
-- Services only rebuild/redeploy when their code actually changes
-- Version numbers are set in [terraform/main.tf](terraform/main.tf) (`webhook_version`, `worker_image_version`)
+- **Smart deployments**: Services only rebuild/redeploy when their CHANGELOG version changes
+- Pipeline checks if git tag exists for CHANGELOG version - skips build if already deployed
+- Version numbers are set in [terraform/terraform.tfvars](terraform/terraform.tfvars) (`webhook_version`, `worker_image_version`)
 
-**To release a new version:**
-1. Update the service's `CHANGELOG.md` with changes
-2. Bump version in [terraform/main.tf](terraform/main.tf)
-3. Commit changes
-4. Create git tag: `git tag -a webhook-v1.3.0 -m "Release notes"`
-5. Push: `git push && git push --tags`
+**CHANGELOG-driven deployments:**
+The CI/CD pipeline automatically:
+1. Extracts version from each service's `CHANGELOG.md` (first `## [X.Y.Z]` line)
+2. Checks if git tag `{service}-vX.Y.Z` already exists
+3. Skips build/deploy if tag exists (prevents unnecessary rebuilds)
+4. Creates git tag automatically after successful deployment
+5. Updates version in terraform.tfvars to match deployed version
 
 ## How It Works
 
@@ -128,10 +150,10 @@ transcripts/
 This project includes GitHub Actions workflows for automated deployment:
 
 **Automatic Deployments:**
-- ✅ **Worker changes** (`worker/`) → Auto-build and deploy Docker image
-- ✅ **Webhook changes** (`webhook/`) → Auto-deploy via Terraform
-- ✅ **Infrastructure changes** (`terraform/`) → Auto-apply Terraform
-- ✅ **PR checks** → Validate code, Terraform, and Docker builds
+- **Worker changes** (`worker/`) → Auto-build and deploy Docker image
+- **Webhook changes** (`webhook/`) → Auto-deploy via Terraform
+- **Infrastructure changes** (`terraform/`) → Auto-apply Terraform
+- **PR checks** → Validate code, Terraform, and Docker builds
 
 **Setup (One-time):**
 
@@ -149,9 +171,80 @@ This project includes GitHub Actions workflows for automated deployment:
    - Add: `WIF_PROVIDER` (Workload Identity Provider path)
    - Add: `WIF_SERVICE_ACCOUNT` (Service account email)
 
-3. **Push to main** → Automatic deployment! 🚀
+3. **Push to main** → Automatic deployment!
 
-**📚 Detailed CI/CD documentation:** See [.github/CICD.md](.github/CICD.md)
+**Detailed CI/CD documentation:** See [.github/CICD.md](.github/CICD.md)
+
+### Making a New Deployment
+
+To deploy new changes to webhook or worker services:
+
+**Step 1: Update the CHANGELOG**
+
+Edit the appropriate service's CHANGELOG ([webhook/CHANGELOG.md](webhook/CHANGELOG.md) or [worker/CHANGELOG.md](worker/CHANGELOG.md)):
+
+```markdown
+## [1.3.0] - 2025-10-12
+
+### Added
+- New feature description
+
+### Fixed
+- Bug fix description
+
+### Changed
+- Change description
+```
+
+**Important**:
+- Use semantic versioning (MAJOR.MINOR.PATCH)
+- Follow [Keep a Changelog](https://keepachangelog.com/) format
+- The **first** `## [X.Y.Z]` line determines the version to deploy
+
+**Step 2: Update terraform.tfvars**
+
+Update the version in [terraform/terraform.tfvars](terraform/terraform.tfvars):
+
+```hcl
+# Service versions (bump these to trigger deployments)
+webhook_version        = "v1.3.0"   # Match CHANGELOG version
+worker_image_version   = "v1.2.0"   # Match CHANGELOG version
+```
+
+**Step 3: Commit and push**
+
+```bash
+git add webhook/CHANGELOG.md terraform/terraform.tfvars  # (or worker/CHANGELOG.md)
+git commit -m "Release webhook v1.3.0: Add new feature"
+git push origin main
+```
+
+**What happens automatically:**
+
+1. GitHub Actions workflow triggers on push to main
+2. Pipeline extracts version from CHANGELOG
+3. Checks if git tag `webhook-v1.3.0` exists
+   - **If tag exists**: Skips build/deploy (already deployed)
+   - **If tag doesn't exist**: Builds and deploys
+4. On successful deployment:
+   - Creates git tag `webhook-v1.3.0` with CHANGELOG notes
+   - Pushes tag to repository
+
+**Verification:**
+
+```bash
+# Check workflow status
+gh run list --limit 5
+
+# View recent tags
+git fetch --tags
+git tag -l "webhook-*" --sort=-version:refname | head -5
+git tag -l "worker-*" --sort=-version:refname | head -5
+
+# Check deployed versions
+gcloud run jobs describe transcription-worker --region us-east1 --format='get(template.template.containers[0].image)'
+gcloud functions describe dropbox-webhook --region us-east1 --gen2 --format='get(labels.version)'
+```
 
 ### Manual Deployment (Alternative)
 
@@ -345,7 +438,7 @@ For files >25MB (like 40MB+ interviews):
    ```bash
    gcloud logging read "resource.type=cloud_run_job" --limit 100 | grep "chunk"
    ```
-3. You should see messages like: `📦 File is large, using chunked transcription`
+3. You should see messages like: `File is large, using chunked transcription`
 
 ### View detailed error logs
 ```bash
