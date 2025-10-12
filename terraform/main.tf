@@ -93,7 +93,7 @@ variable "worker_image_version" {
 variable "webhook_version" {
   description = "Version tag for webhook Cloud Function"
   type        = string
-  default     = "v1.1.0"
+  default     = "v1.2.0"
 }
 
 # Enable required APIs
