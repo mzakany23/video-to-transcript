@@ -1,6 +1,13 @@
 
 # Dropbox-based transcription pipeline infrastructure
 
+terraform {
+  backend "gcs" {
+    bucket = "jos-transcripts-terraform-state"
+    prefix = "terraform/state"
+  }
+}
+
 variable "project_id" {
   description = "The GCP project ID"
   type        = string
