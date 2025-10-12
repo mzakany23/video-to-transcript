@@ -57,11 +57,29 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -out=tfplan
         working-directory: ./terraform
+        env:
+          TF_VAR_dropbox_access_token: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
+          TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
+          TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
+          TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          TF_VAR_notification_emails: ${{ secrets.NOTIFICATION_EMAILS }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          TF_VAR_dropbox_refresh_token: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+          TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve tfplan
         working-directory: ./terraform
+        env:
+          TF_VAR_dropbox_access_token: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
+          TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
+          TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
+          TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          TF_VAR_notification_emails: ${{ secrets.NOTIFICATION_EMAILS }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          TF_VAR_dropbox_refresh_token: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+          TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
 
       - name: Get outputs
         if: success()
