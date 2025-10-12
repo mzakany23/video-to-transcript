@@ -50,8 +50,6 @@ jobs:
         run: |
           BUILD_ID=$(gcloud builds submit \
             --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} \
-            --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
             --format='value(id)' \
             --async \
             ./worker)
@@ -74,6 +72,22 @@ jobs:
 
             sleep 10
           done
+
+      - name: Tag image with additional tags
+        run: |
+          # Add commit SHA tag
+          gcloud container images add-tag \
+            gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} \
+            gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --quiet
+
+          # Add latest tag
+          gcloud container images add-tag \
+            gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} \
+            gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
+            --quiet
+
+          echo "✅ Tagged image with: ${{ steps.version.outputs.VERSION }}, ${{ github.sha }}, latest"
 
       - name: Deploy to Cloud Run Job
         run: |
