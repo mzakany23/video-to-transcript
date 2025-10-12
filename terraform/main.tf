@@ -78,6 +78,12 @@ variable "dropbox_app_key" {
   default     = "" # Optional - only needed for OAuth flow
 }
 
+variable "worker_image_version" {
+  description = "Docker image version for transcription worker"
+  type        = string
+  default     = "v1.1.0"
+}
+
 # Enable required APIs
 resource "google_project_service" "required_apis" {
   for_each = toset([
@@ -298,7 +304,7 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
       service_account = google_service_account.transcription_service.email
 
       containers {
-        image = "gcr.io/${var.project_id}/transcription-worker:latest"
+        image = "gcr.io/${var.project_id}/transcription-worker:${var.worker_image_version}"
 
         env {
           name  = "PROJECT_ID"

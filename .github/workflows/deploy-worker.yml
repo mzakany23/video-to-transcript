@@ -26,6 +26,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for version detection
+
+      - name: Determine version
+        id: version
+        run: |
+          # Get the latest git tag, or use a default version
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.1.0")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Deploying version: $VERSION"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -39,8 +49,9 @@ jobs:
       - name: Build and push Docker image to GCR
         run: |
           BUILD_ID=$(gcloud builds submit \
-            --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
+            --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} \
             --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
             --format='value(id)' \
             --async \
             ./worker)
@@ -67,7 +78,7 @@ jobs:
       - name: Deploy to Cloud Run Job
         run: |
           gcloud run jobs update ${{ env.IMAGE_NAME }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }}
 
@@ -82,4 +93,6 @@ jobs:
         if: success()
         run: |
           echo "✅ Worker deployed successfully!"
-          echo "Image: gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "Version: ${{ steps.version.outputs.VERSION }}"
+          echo "Image: gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
+          echo "Commit SHA: ${{ github.sha }}"
