@@ -83,6 +83,12 @@ variable "worker_image_version" {
   default     = "v1.1.0"
 }
 
+variable "webhook_version" {
+  description = "Version tag for webhook Cloud Function"
+  type        = string
+  default     = "v1.1.0"
+}
+
 # Enable required APIs
 resource "google_project_service" "required_apis" {
   for_each = toset([
@@ -394,6 +400,12 @@ resource "google_cloudfunctions2_function" "webhook_handler" {
   location = var.region
   project  = var.project_id
 
+  labels = {
+    version     = replace(var.webhook_version, ".", "-")
+    managed-by  = "terraform"
+    environment = "production"
+  }
+
   build_config {
     runtime     = "python311"
     entry_point = "webhook_handler"
@@ -413,6 +425,7 @@ resource "google_cloudfunctions2_function" "webhook_handler" {
     service_account_email = google_service_account.transcription_service.email
 
     environment_variables = {
+      VERSION                  = var.webhook_version
       PROJECT_ID               = var.project_id
       GCP_REGION               = var.region
       WORKER_JOB_NAME          = google_cloud_run_v2_job.transcription_processor.name
