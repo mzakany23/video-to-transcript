@@ -83,6 +83,7 @@ jobs:
           TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
           TF_VAR_dropbox_raw_folder: ${{ secrets.DROPBOX_RAW_FOLDER }}
           TF_VAR_dropbox_processed_folder: ${{ secrets.DROPBOX_PROCESSED_FOLDER }}
+          TF_VAR_sentry_dsn: ${{ secrets.SENTRY_DSN }}
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
@@ -105,6 +106,7 @@ jobs:
           TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
           TF_VAR_dropbox_raw_folder: ${{ secrets.DROPBOX_RAW_FOLDER }}
           TF_VAR_dropbox_processed_folder: ${{ secrets.DROPBOX_PROCESSED_FOLDER }}
+          TF_VAR_sentry_dsn: ${{ secrets.SENTRY_DSN }}
 
       - name: Get outputs
         if: success()

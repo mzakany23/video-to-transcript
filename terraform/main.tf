@@ -77,6 +77,13 @@ variable "dropbox_app_key" {
   default     = "" # Optional - only needed for OAuth flow
 }
 
+variable "sentry_dsn" {
+  description = "Sentry DSN for error tracking"
+  type        = string
+  sensitive   = true
+  default     = "" # Optional - only needed if Sentry is configured
+}
+
 variable "worker_image_version" {
   description = "Docker image version for transcription worker"
   type        = string
@@ -212,6 +219,25 @@ resource "google_secret_manager_secret_version" "dropbox_app_key" {
   count       = var.dropbox_app_key != "" ? 1 : 0
   secret      = google_secret_manager_secret.dropbox_app_key[0].id
   secret_data = var.dropbox_app_key
+}
+
+# Sentry DSN for error tracking
+resource "google_secret_manager_secret" "sentry_dsn" {
+  count     = var.sentry_dsn != "" ? 1 : 0
+  project   = var.project_id
+  secret_id = "sentry-dsn"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "sentry_dsn" {
+  count       = var.sentry_dsn != "" ? 1 : 0
+  secret      = google_secret_manager_secret.sentry_dsn[0].id
+  secret_data = var.sentry_dsn
 }
 
 # Service account for Cloud Run jobs
@@ -356,6 +382,27 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
           value = var.dropbox_processed_folder
         }
 
+        dynamic "env" {
+          for_each = var.sentry_dsn != "" ? [1] : []
+          content {
+            name = "SENTRY_DSN"
+            value_source {
+              secret_key_ref {
+                secret  = google_secret_manager_secret.sentry_dsn[0].secret_id
+                version = "latest"
+              }
+            }
+          }
+        }
+
+        dynamic "env" {
+          for_each = var.sentry_dsn != "" ? [1] : []
+          content {
+            name  = "SENTRY_ENVIRONMENT"
+            value = "production"
+          }
+        }
+
         resources {
           limits = {
             cpu    = "2"
@@ -459,6 +506,16 @@ resource "google_cloudfunctions2_function" "webhook_handler" {
       project_id = var.project_id
       secret     = "dropbox-app-key"
       version    = "latest"
+    }
+
+    dynamic "secret_environment_variables" {
+      for_each = var.sentry_dsn != "" ? [1] : []
+      content {
+        key        = "SENTRY_DSN"
+        project_id = var.project_id
+        secret     = google_secret_manager_secret.sentry_dsn[0].secret_id
+        version    = "latest"
+      }
     }
   }
 

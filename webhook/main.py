@@ -15,6 +15,26 @@ from google.cloud import run_v2, storage
 from flask import Request
 import dropbox
 
+# Initialize Sentry for error tracking
+try:
+    import sentry_sdk
+    sentry_dsn = os.environ.get('SENTRY_DSN')
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            environment=os.environ.get('SENTRY_ENVIRONMENT', 'production'),
+            release=os.environ.get('VERSION', 'webhook@unknown'),
+            send_default_pii=True,
+            traces_sample_rate=0.1  # 10% of transactions for performance monitoring
+        )
+        print(f"✅ Sentry initialized - version: {os.environ.get('VERSION', 'unknown')}")
+    else:
+        print("ℹ️ Sentry DSN not configured, error tracking disabled")
+except ImportError:
+    print("⚠️ Sentry SDK not installed, error tracking disabled")
+except Exception as e:
+    print(f"⚠️ Failed to initialize Sentry: {e}")
+
 @functions_framework.http
 def webhook_handler(request: Request):
     """
