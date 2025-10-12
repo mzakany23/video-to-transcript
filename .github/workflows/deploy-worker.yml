@@ -17,6 +17,7 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: video-to-transcript
 
     permissions:
       contents: read

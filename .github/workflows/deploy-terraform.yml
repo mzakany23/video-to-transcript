@@ -18,6 +18,7 @@ env:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    environment: video-to-transcript
 
     permissions:
       contents: read
