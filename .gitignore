@@ -86,3 +86,4 @@ htmlcov/
 coverage.xml
 *.lcov
 # .github - removed to allow workflows
+terraform/tfplan
