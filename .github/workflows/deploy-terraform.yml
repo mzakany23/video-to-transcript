@@ -59,6 +59,8 @@ jobs:
         run: terraform plan -out=tfplan
         working-directory: ./terraform
         env:
+          TF_VAR_project_id: ${{ env.PROJECT_ID }}
+          TF_VAR_region: ${{ env.REGION }}
           TF_VAR_dropbox_access_token: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
           TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
@@ -73,6 +75,8 @@ jobs:
         run: terraform apply -auto-approve tfplan
         working-directory: ./terraform
         env:
+          TF_VAR_project_id: ${{ env.PROJECT_ID }}
+          TF_VAR_region: ${{ env.REGION }}
           TF_VAR_dropbox_access_token: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
           TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}

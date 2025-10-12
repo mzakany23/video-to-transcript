@@ -256,6 +256,12 @@ resource "google_project_iam_member" "github_service_account_user" {
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 }
 
+resource "google_project_iam_member" "github_logging_viewer" {
+  project = var.project_id
+  role    = "roles/logging.viewer"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
 # Cloud Run Job for transcription processing
 resource "google_cloud_run_v2_job" "transcription_processor" {
   project  = var.project_id
