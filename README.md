@@ -48,6 +48,26 @@ uv run main.py
 
 ```
 
+## Versioning
+
+This project uses **independent semantic versioning** for webhook and worker services:
+
+- **Webhook versions**: `webhook-v1.2.0`, `webhook-v1.3.0`, etc.
+- **Worker versions**: `worker-v1.1.0`, `worker-v1.2.0`, etc.
+
+**Version control:**
+- Each service has its own `CHANGELOG.md` in its directory ([webhook/CHANGELOG.md](webhook/CHANGELOG.md), [worker/CHANGELOG.md](worker/CHANGELOG.md))
+- Git tags follow the pattern `{service}-v{semver}` (e.g., `webhook-v1.2.0`)
+- Services only rebuild/redeploy when their code actually changes
+- Version numbers are set in [terraform/main.tf](terraform/main.tf) (`webhook_version`, `worker_image_version`)
+
+**To release a new version:**
+1. Update the service's `CHANGELOG.md` with changes
+2. Bump version in [terraform/main.tf](terraform/main.tf)
+3. Commit changes
+4. Create git tag: `git tag -a webhook-v1.3.0 -m "Release notes"`
+5. Push: `git push && git push --tags`
+
 ## How It Works
 
 1. **Upload**: Drop audio/video files into Dropbox folder
