@@ -80,6 +80,8 @@ jobs:
           TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           TF_VAR_dropbox_refresh_token: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
           TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
+          TF_VAR_dropbox_raw_folder: ${{ secrets.DROPBOX_RAW_FOLDER }}
+          TF_VAR_dropbox_processed_folder: ${{ secrets.DROPBOX_PROCESSED_FOLDER }}
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
@@ -99,6 +101,8 @@ jobs:
           TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           TF_VAR_dropbox_refresh_token: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
           TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
+          TF_VAR_dropbox_raw_folder: ${{ secrets.DROPBOX_RAW_FOLDER }}
+          TF_VAR_dropbox_processed_folder: ${{ secrets.DROPBOX_PROCESSED_FOLDER }}
 
       - name: Get outputs
         if: success()

@@ -51,13 +51,11 @@ variable "notification_emails" {
 variable "dropbox_raw_folder" {
   description = "Dropbox folder path for raw audio files"
   type        = string
-  default     = "/raw"
 }
 
 variable "dropbox_processed_folder" {
   description = "Dropbox folder path for processed transcriptions"
   type        = string
-  default     = "/processed"
 }
 
 variable "openai_api_key" {
