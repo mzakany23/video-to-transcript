@@ -56,7 +56,10 @@ jobs:
         working-directory: ./terraform
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan
+        run: |
+          # Convert comma-separated emails to JSON array format
+          export TF_VAR_notification_emails="[\"$(echo '${{ secrets.NOTIFICATION_EMAILS }}' | sed 's/,/","/g')\"]"
+          terraform plan -out=tfplan
         working-directory: ./terraform
         env:
           TF_VAR_project_id: ${{ env.PROJECT_ID }}
@@ -65,14 +68,16 @@ jobs:
           TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
           TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
-          TF_VAR_notification_emails: ${{ secrets.NOTIFICATION_EMAILS }}
           TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           TF_VAR_dropbox_refresh_token: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
           TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve tfplan
+        run: |
+          # Convert comma-separated emails to JSON array format
+          export TF_VAR_notification_emails="[\"$(echo '${{ secrets.NOTIFICATION_EMAILS }}' | sed 's/,/","/g')\"]"
+          terraform apply -auto-approve tfplan
         working-directory: ./terraform
         env:
           TF_VAR_project_id: ${{ env.PROJECT_ID }}
@@ -81,7 +86,6 @@ jobs:
           TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
           TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
-          TF_VAR_notification_emails: ${{ secrets.NOTIFICATION_EMAILS }}
           TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           TF_VAR_dropbox_refresh_token: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
           TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
