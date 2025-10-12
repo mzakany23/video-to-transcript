@@ -223,6 +223,39 @@ resource "google_project_iam_member" "storage_admin" {
   member  = "serviceAccount:${google_service_account.transcription_service.email}"
 }
 
+# Service account for GitHub Actions CI/CD
+resource "google_service_account" "github_actions" {
+  project      = var.project_id
+  account_id   = "github-actions-deploy"
+  display_name = "GitHub Actions Deployment"
+  description  = "Service account for GitHub Actions CI/CD pipeline"
+}
+
+# Grant GitHub Actions service account necessary permissions
+resource "google_project_iam_member" "github_cloudbuild" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.builder"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+resource "google_project_iam_member" "github_storage" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+resource "google_project_iam_member" "github_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+resource "google_project_iam_member" "github_service_account_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
 # Cloud Run Job for transcription processing
 resource "google_cloud_run_v2_job" "transcription_processor" {
   project  = var.project_id
