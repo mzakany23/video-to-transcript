@@ -32,18 +32,16 @@ jobs:
       - name: Determine version from CHANGELOG
         id: version
         run: |
-          # Get version from CHANGELOG (first ## [X.Y.Z] line)
-          CHANGELOG_VERSION=$(grep -m1 '^## \[' worker/CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
-          echo "VERSION=v$CHANGELOG_VERSION" >> $GITHUB_OUTPUT
-          echo "📋 CHANGELOG version: v$CHANGELOG_VERSION"
+          # Get version from CHANGELOG (first ## [X.Y.Z] line) and add 'v' prefix for Docker tag
+          CHANGELOG_VERSION=$(grep -m1 '^## \[' worker/CHANGELOG.md | sed 's/## \[\(.*\)\].*/v\1/')
+          echo "VERSION=$CHANGELOG_VERSION" >> $GITHUB_OUTPUT
+          echo "📋 CHANGELOG version: $CHANGELOG_VERSION"
 
       - name: Check if version already deployed
         id: changes
         run: |
-          # Check if git tag already exists for this version
-          TAG="worker-v${{ steps.version.outputs.VERSION }}"
-          TAG="${TAG#worker-v}"  # Remove duplicate prefix if present
-          TAG="worker-v${TAG}"
+          # Check if git tag already exists for this version (VERSION already has 'v' prefix)
+          TAG="worker-${{ steps.version.outputs.VERSION }}"
 
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
