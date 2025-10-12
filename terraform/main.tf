@@ -1,5 +1,6 @@
 
 # Dropbox-based transcription pipeline infrastructure
+# Fixed: Updated Dropbox folder paths to /jos-transcripts/raw and /jos-transcripts/processed
 
 terraform {
   backend "gcs" {
