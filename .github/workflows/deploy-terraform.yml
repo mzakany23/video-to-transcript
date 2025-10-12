@@ -19,8 +19,8 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
 
     permissions:
-      contents: read
-      id-token: write # Required for Workload Identity Federation
+      contents: write      # Required to create/push git tags
+      id-token: write      # Required for Workload Identity Federation
 
     steps:
       - name: Checkout code
