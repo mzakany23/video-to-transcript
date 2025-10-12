@@ -28,13 +28,16 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for version detection
 
-      - name: Determine version
+      - name: Determine versions
         id: version
         run: |
-          # Get the latest git tag, or use a default version
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.1.0")
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Using version: $VERSION"
+          # Get the latest version for each service
+          WEBHOOK_VERSION=$(git tag -l 'webhook-v*' --sort=-v:refname | head -n1 | sed 's/webhook-//' || echo "v1.2.0")
+          WORKER_VERSION=$(git tag -l 'worker-v*' --sort=-v:refname | head -n1 | sed 's/worker-//' || echo "v1.1.0")
+          echo "WEBHOOK_VERSION=$WEBHOOK_VERSION" >> $GITHUB_OUTPUT
+          echo "WORKER_VERSION=$WORKER_VERSION" >> $GITHUB_OUTPUT
+          echo "Using webhook version: $WEBHOOK_VERSION"
+          echo "Using worker version: $WORKER_VERSION"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -72,8 +75,8 @@ jobs:
         env:
           TF_VAR_project_id: ${{ env.PROJECT_ID }}
           TF_VAR_region: ${{ env.REGION }}
-          TF_VAR_worker_image_version: ${{ steps.version.outputs.VERSION }}
-          TF_VAR_webhook_version: ${{ steps.version.outputs.VERSION }}
+          TF_VAR_worker_image_version: ${{ steps.version.outputs.WORKER_VERSION }}
+          TF_VAR_webhook_version: ${{ steps.version.outputs.WEBHOOK_VERSION }}
           TF_VAR_dropbox_access_token: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
           TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
@@ -95,8 +98,8 @@ jobs:
         env:
           TF_VAR_project_id: ${{ env.PROJECT_ID }}
           TF_VAR_region: ${{ env.REGION }}
-          TF_VAR_worker_image_version: ${{ steps.version.outputs.VERSION }}
-          TF_VAR_webhook_version: ${{ steps.version.outputs.VERSION }}
+          TF_VAR_worker_image_version: ${{ steps.version.outputs.WORKER_VERSION }}
+          TF_VAR_webhook_version: ${{ steps.version.outputs.WEBHOOK_VERSION }}
           TF_VAR_dropbox_access_token: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
           TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}

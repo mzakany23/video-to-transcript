@@ -32,10 +32,10 @@ jobs:
       - name: Determine version
         id: version
         run: |
-          # Get the latest git tag, or use a default version
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.1.0")
+          # Get the latest worker version tag
+          VERSION=$(git tag -l 'worker-v*' --sort=-v:refname | head -n1 | sed 's/worker-//' || echo "v1.1.0")
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Deploying version: $VERSION"
+          echo "Deploying worker version: $VERSION"
 
       - name: Check for changes
         id: changes
