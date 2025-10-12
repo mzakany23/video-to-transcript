@@ -85,15 +85,13 @@ variable "sentry_dsn" {
 }
 
 variable "worker_image_version" {
-  description = "Docker image version for transcription worker"
+  description = "Docker image version for transcription worker (set in terraform.tfvars)"
   type        = string
-  default     = "v1.1.0"
 }
 
 variable "webhook_version" {
-  description = "Version tag for webhook Cloud Function"
+  description = "Version tag for webhook Cloud Function (set in terraform.tfvars)"
   type        = string
-  default     = "v1.2.0"
 }
 
 # Enable required APIs
@@ -523,12 +521,26 @@ resource "google_cloudfunctions2_function" "webhook_handler" {
 }
 
 # Allow public access to webhook (for Dropbox to call it)
+# SECURITY NOTE: While this allows unauthenticated HTTP access, the webhook handler
+# validates all requests using HMAC-SHA256 signature verification with the Dropbox
+# app secret. This is the industry-standard security model for webhooks (GitHub,
+# Stripe, Dropbox, etc.) - the HMAC signature provides cryptographic authentication.
 resource "google_cloudfunctions2_function_iam_member" "webhook_public_access" {
   project        = var.project_id
   location       = google_cloudfunctions2_function.webhook_handler.location
   cloud_function = google_cloudfunctions2_function.webhook_handler.name
   role           = "roles/cloudfunctions.invoker"
   member         = "allUsers"
+}
+
+# Also allow public access to the underlying Cloud Run service
+# (Gen2 Cloud Functions are backed by Cloud Run services)
+resource "google_cloud_run_service_iam_member" "webhook_public_access" {
+  project  = var.project_id
+  location = google_cloudfunctions2_function.webhook_handler.location
+  service  = google_cloudfunctions2_function.webhook_handler.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 # Outputs

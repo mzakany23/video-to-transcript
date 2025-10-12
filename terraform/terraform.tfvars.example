@@ -16,3 +16,7 @@ dropbox_app_secret   = "your-dropbox-app-secret"
 gmail_address      = "your-email@gmail.com"
 gmail_app_password = "your-16-char-app-password"  # From Google App Passwords
 notification_emails = ["recipient@example.com"]   # List of emails to receive notifications
+
+# Service versions - bump these to trigger deployments
+webhook_version      = "v1.2.1"
+worker_image_version = "v1.1.0"
