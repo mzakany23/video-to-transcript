@@ -69,13 +69,13 @@ variable "dropbox_refresh_token" {
   description = "Dropbox OAuth refresh token"
   type        = string
   sensitive   = true
-  default     = ""  # Optional - only needed for OAuth flow
+  default     = "" # Optional - only needed for OAuth flow
 }
 
 variable "dropbox_app_key" {
   description = "Dropbox app key"
   type        = string
-  default     = ""  # Optional - only needed for OAuth flow
+  default     = "" # Optional - only needed for OAuth flow
 }
 
 # Enable required APIs
@@ -301,12 +301,12 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
         image = "gcr.io/${var.project_id}/transcription-worker:latest"
 
         env {
-          name = "PROJECT_ID"
+          name  = "PROJECT_ID"
           value = var.project_id
         }
 
         env {
-          name = "SECRET_NAME"
+          name  = "SECRET_NAME"
           value = "openai-api-key"
         }
 
@@ -353,7 +353,7 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
         }
       }
 
-      timeout = "3600s"  # 1 hour timeout
+      timeout = "3600s" # 1 hour timeout
     }
   }
 
@@ -401,10 +401,10 @@ resource "google_cloudfunctions2_function" "webhook_handler" {
   }
 
   service_config {
-    max_instance_count = 10
-    min_instance_count = 0  # Scale to zero = $0 when not used!
-    available_memory   = "256Mi"
-    timeout_seconds    = 60
+    max_instance_count    = 10
+    min_instance_count    = 0 # Scale to zero = $0 when not used!
+    available_memory      = "256Mi"
+    timeout_seconds       = 60
     service_account_email = google_service_account.transcription_service.email
 
     environment_variables = {
