@@ -410,9 +410,11 @@ class WebhookProcessor:
         try:
             file_name = file_info['name']
             file_path = file_info['path']
-            
-            print(f"🚀 Triggering job for file: {file_name}")
-            
+            file_size = file_info.get('size', 0)
+            file_size_mb = file_size / (1024 * 1024) if file_size > 0 else 0
+
+            print(f"🚀 Triggering job for file: {file_name} ({file_size_mb:.1f}MB)")
+
             # Create execution request for Cloud Run Job with specific file
             request = run_v2.RunJobRequest(
                 name=self.job_path,
@@ -423,6 +425,7 @@ class WebhookProcessor:
                                 run_v2.EnvVar(name="PROCESS_SINGLE_FILE", value="true"),
                                 run_v2.EnvVar(name="TARGET_FILE_PATH", value=file_path),
                                 run_v2.EnvVar(name="TARGET_FILE_NAME", value=file_name),
+                                run_v2.EnvVar(name="TARGET_FILE_SIZE_MB", value=f"{file_size_mb:.1f}"),
                             ]
                         )
                     ]

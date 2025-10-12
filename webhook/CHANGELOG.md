@@ -5,6 +5,15 @@ All notable changes to the webhook service will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2025-10-12
+
+### Fixed
+- File size now correctly passed to worker for job start email notifications
+
+### Changed
+- Pass TARGET_FILE_SIZE_MB environment variable to worker jobs
+- Enhanced job trigger logging with file size information
+
 ## [1.2.1] - 2025-10-12
 
 ### Fixed
@@ -62,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Webhook operation name bug
 - Webhook flooding prevention
 
+[1.2.2]: https://github.com/mzakany23/video-to-transcript/releases/tag/webhook-v1.2.2
 [1.2.1]: https://github.com/mzakany23/video-to-transcript/releases/tag/webhook-v1.2.1
 [1.2.0]: https://github.com/mzakany23/video-to-transcript/releases/tag/webhook-v1.2.0
 [1.1.0]: https://github.com/mzakany23/video-to-transcript/releases/tag/webhook-v1.1.0

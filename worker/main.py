@@ -149,10 +149,11 @@ class TranscriptionJobProcessor:
                 'modified': datetime.now().isoformat()
             }
 
-            # Send job start notification
+            # Send job start notification (get file size from env if available)
+            file_size_mb = float(os.environ.get('TARGET_FILE_SIZE_MB', '0'))
             self.notification_service.send_job_start({
                 'file_name': file_name,
-                'file_size_mb': 0  # Unknown at this point
+                'file_size_mb': file_size_mb
             })
 
             # Process the file

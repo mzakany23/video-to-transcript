@@ -5,6 +5,12 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-10-12
+
+### Fixed
+- Job start email now displays correct file size instead of 0.0 MB
+- Read TARGET_FILE_SIZE_MB environment variable from webhook
+
 ## [1.1.0] - 2025-10-12
 
 ### Added
@@ -49,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline workflow issues
 - Dependency management improvements
 
+[1.1.1]: https://github.com/mzakany23/video-to-transcript/releases/tag/worker-v1.1.1
 [1.1.0]: https://github.com/mzakany23/video-to-transcript/releases/tag/worker-v1.1.0
 [1.0.1]: https://github.com/mzakany23/video-to-transcript/releases/tag/worker-v1.0.1
 [1.0.0]: https://github.com/mzakany23/video-to-transcript/releases/tag/worker-v1.0.0
