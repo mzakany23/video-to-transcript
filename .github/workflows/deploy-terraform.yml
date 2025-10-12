@@ -123,3 +123,48 @@ jobs:
       - name: Notify deployment success
         if: success()
         run: echo "✅ Terraform applied successfully!"
+
+      - name: Auto-create git tags from CHANGELOG versions
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Extract webhook version from CHANGELOG
+          WEBHOOK_VERSION=$(grep -m1 '^## \[' webhook/CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
+          WEBHOOK_TAG="webhook-v$WEBHOOK_VERSION"
+
+          # Extract worker version from CHANGELOG
+          WORKER_VERSION=$(grep -m1 '^## \[' worker/CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
+          WORKER_TAG="worker-v$WORKER_VERSION"
+
+          # Create webhook tag if it doesn't exist
+          if ! git rev-parse "$WEBHOOK_TAG" >/dev/null 2>&1; then
+            WEBHOOK_NOTES=$(awk '/^## \[/{flag=1; next} /^## \[/{flag=0} flag' webhook/CHANGELOG.md | head -20)
+            git tag -a "$WEBHOOK_TAG" -m "$(cat <<EOF
+          Release $WEBHOOK_TAG
+
+          $WEBHOOK_NOTES
+          EOF
+          )"
+            git push origin "$WEBHOOK_TAG"
+            echo "✅ Created tag: $WEBHOOK_TAG"
+          else
+            echo "⏭️ Tag already exists: $WEBHOOK_TAG"
+          fi
+
+          # Create worker tag if it doesn't exist
+          if ! git rev-parse "$WORKER_TAG" >/dev/null 2>&1; then
+            WORKER_NOTES=$(awk '/^## \[/{flag=1; next} /^## \[/{flag=0} flag' worker/CHANGELOG.md | head -20)
+            git tag -a "$WORKER_TAG" -m "$(cat <<EOF
+          Release $WORKER_TAG
+
+          $WORKER_NOTES
+          EOF
+          )"
+            git push origin "$WORKER_TAG"
+            echo "✅ Created tag: $WORKER_TAG"
+          else
+            echo "⏭️ Tag already exists: $WORKER_TAG"
+          fi
