@@ -4,14 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'terraform/**'
-      - 'webhook/**'
-      - '.github/workflows/deploy-terraform.yml'
-  workflow_run:
-    workflows: ["Deploy Worker"]
-    types:
-      - completed
   workflow_dispatch: # Allow manual trigger
 
 env:

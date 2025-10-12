@@ -1,12 +1,10 @@
 name: Deploy Worker
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'worker/**'
-      - '.github/workflows/deploy-worker.yml'
+  workflow_run:
+    workflows: ["Deploy Terraform"]
+    types:
+      - completed
   workflow_dispatch: # Allow manual trigger
 
 env:
@@ -18,6 +16,8 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: video-to-transcript
+    # Only run if Deploy Terraform succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     permissions:
       contents: read
@@ -37,16 +37,31 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Deploying version: $VERSION"
 
+      - name: Check for changes
+        id: changes
+        run: |
+          # Check if worker directory has changes since last commit
+          if git diff --quiet HEAD~1 HEAD -- worker/ .github/workflows/deploy-worker.yml; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "⏭️  No changes detected in worker code - skipping build"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "✅ Changes detected in worker code - proceeding with build"
+          fi
+
       - name: Authenticate to Google Cloud
+        if: steps.changes.outputs.has_changes == 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       - name: Set up Cloud SDK
+        if: steps.changes.outputs.has_changes == 'true'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Build and push Docker image to GCR
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           BUILD_ID=$(gcloud builds submit \
             --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} \
@@ -74,6 +89,7 @@ jobs:
           done
 
       - name: Tag image with additional tags
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           # Add commit SHA tag
           gcloud container images add-tag \
@@ -90,6 +106,7 @@ jobs:
           echo "✅ Tagged image with: ${{ steps.version.outputs.VERSION }}, ${{ github.sha }}, latest"
 
       - name: Deploy to Cloud Run Job
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           gcloud run jobs update ${{ env.IMAGE_NAME }} \
             --image gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} \
@@ -97,6 +114,7 @@ jobs:
             --project ${{ env.PROJECT_ID }}
 
       - name: Verify deployment
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           gcloud run jobs describe ${{ env.IMAGE_NAME }} \
             --region ${{ env.REGION }} \
@@ -104,9 +122,16 @@ jobs:
             --format='get(status.latestCreatedExecution.name)'
 
       - name: Notify deployment success
-        if: success()
+        if: steps.changes.outputs.has_changes == 'true' && success()
         run: |
           echo "✅ Worker deployed successfully!"
           echo "Version: ${{ steps.version.outputs.VERSION }}"
           echo "Image: gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}"
           echo "Commit SHA: ${{ github.sha }}"
+
+      - name: Notify no changes
+        if: steps.changes.outputs.has_changes == 'false'
+        run: |
+          echo "⏭️  No worker code changes detected - deployment skipped"
+          echo "Current version: ${{ steps.version.outputs.VERSION }}"
+          echo "Skipped to avoid unnecessary builds and deployments"
