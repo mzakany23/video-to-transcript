@@ -28,45 +28,70 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for version detection
 
-      - name: Determine versions
+      - name: Determine versions from CHANGELOGs
         id: version
         run: |
-          # Get the latest version for each service
-          WEBHOOK_VERSION=$(git tag -l 'webhook-v*' --sort=-v:refname | head -n1 | sed 's/webhook-//' || echo "v1.2.0")
-          WORKER_VERSION=$(git tag -l 'worker-v*' --sort=-v:refname | head -n1 | sed 's/worker-//' || echo "v1.1.0")
+          # Get versions from CHANGELOGs (first ## [X.Y.Z] line)
+          WEBHOOK_VERSION=$(grep -m1 '^## \[' webhook/CHANGELOG.md | sed 's/## \[\(.*\)\].*/v\1/')
+          WORKER_VERSION=$(grep -m1 '^## \[' worker/CHANGELOG.md | sed 's/## \[\(.*\)\].*/v\1/')
           echo "WEBHOOK_VERSION=$WEBHOOK_VERSION" >> $GITHUB_OUTPUT
           echo "WORKER_VERSION=$WORKER_VERSION" >> $GITHUB_OUTPUT
-          echo "Using webhook version: $WEBHOOK_VERSION"
-          echo "Using worker version: $WORKER_VERSION"
+          echo "📋 CHANGELOG versions - webhook: $WEBHOOK_VERSION, worker: $WORKER_VERSION"
+
+      - name: Check if webhook needs deployment
+        id: webhook_check
+        run: |
+          TAG="webhook-${{ steps.version.outputs.WEBHOOK_VERSION }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "needs_deploy=false" >> $GITHUB_OUTPUT
+            echo "⏭️  Webhook $TAG already deployed"
+          else
+            echo "needs_deploy=true" >> $GITHUB_OUTPUT
+            echo "✅ New webhook version $TAG - will deploy"
+          fi
 
       - name: Authenticate to Google Cloud
+        if: steps.webhook_check.outputs.needs_deploy == 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       - name: Set up Cloud SDK
+        if: steps.webhook_check.outputs.needs_deploy == 'true'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Set up Terraform
+        if: steps.webhook_check.outputs.needs_deploy == 'true'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Skip deployment notification
+        if: steps.webhook_check.outputs.needs_deploy == 'false'
+        run: |
+          echo "⏭️  Skipping deployment - webhook version already deployed"
+          echo "Current CHANGELOG version: ${{ steps.version.outputs.WEBHOOK_VERSION }}"
+          echo "No changes needed"
+
       - name: Terraform Format Check
+        if: steps.webhook_check.outputs.needs_deploy == 'true'
         run: terraform fmt -check -recursive
         working-directory: ./terraform
         continue-on-error: true
 
       - name: Terraform Init
+        if: steps.webhook_check.outputs.needs_deploy == 'true'
         run: terraform init
         working-directory: ./terraform
 
       - name: Terraform Validate
+        if: steps.webhook_check.outputs.needs_deploy == 'true'
         run: terraform validate
         working-directory: ./terraform
 
       - name: Terraform Plan
+        if: steps.webhook_check.outputs.needs_deploy == 'true'
         run: |
           # Convert comma-separated emails to JSON array format
           export TF_VAR_notification_emails="[\"$(echo '${{ secrets.NOTIFICATION_EMAILS }}' | sed 's/,/","/g')\"]"
@@ -89,7 +114,7 @@ jobs:
           TF_VAR_sentry_dsn: ${{ secrets.SENTRY_DSN }}
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.webhook_check.outputs.needs_deploy == 'true'
         run: |
           # Convert comma-separated emails to JSON array format
           export TF_VAR_notification_emails="[\"$(echo '${{ secrets.NOTIFICATION_EMAILS }}' | sed 's/,/","/g')\"]"
@@ -112,7 +137,7 @@ jobs:
           TF_VAR_sentry_dsn: ${{ secrets.SENTRY_DSN }}
 
       - name: Get outputs
-        if: success()
+        if: success() && steps.webhook_check.outputs.needs_deploy == 'true'
         run: |
           echo "### Terraform Outputs" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
@@ -121,11 +146,11 @@ jobs:
         working-directory: ./terraform
 
       - name: Notify deployment success
-        if: success()
+        if: success() && steps.webhook_check.outputs.needs_deploy == 'true'
         run: echo "✅ Terraform applied successfully!"
 
       - name: Auto-create git tags from CHANGELOG versions
-        if: success() && github.ref == 'refs/heads/main'
+        if: success() && github.ref == 'refs/heads/main' && steps.webhook_check.outputs.needs_deploy == 'true'
         run: |
           # Configure git
           git config user.name "github-actions[bot]"
