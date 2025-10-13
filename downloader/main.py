@@ -212,9 +212,16 @@ class ZoomClient:
 
         print(f"📋 Fetching recording details from API for meeting: {meeting_uuid}")
 
-        # URL encode the meeting UUID (double-encode for special characters)
+        # URL encode the meeting UUID
+        # Zoom requires double-encoding ONLY for UUIDs with '/' or '//' in them
+        # For UUIDs ending in '==', single encoding is sufficient
         import urllib.parse
-        encoded_uuid = urllib.parse.quote(urllib.parse.quote(meeting_uuid, safe=''), safe='')
+        if '/' in meeting_uuid:
+            # Double-encode for meeting IDs with forward slashes
+            encoded_uuid = urllib.parse.quote(urllib.parse.quote(meeting_uuid, safe=''), safe='')
+        else:
+            # Single encode for standard base64 UUIDs (with = padding)
+            encoded_uuid = urllib.parse.quote(meeting_uuid, safe='')
 
         url = f"{self.base_url}/meetings/{encoded_uuid}/recordings"
         headers = {"Authorization": f"Bearer {self.access_token}"}
