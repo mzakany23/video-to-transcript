@@ -29,6 +29,8 @@ Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload f
   - [Optional: Sentry Error Tracking](#optional-sentry-error-tracking)
   - [Monitoring](#monitoring)
 - [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 - **AI-Powered Topic Summarization**: Automatic topic identification with timestamps, key points, and action items
@@ -469,3 +471,42 @@ gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=tr
 # Real-time streaming
 gcloud logging tail "resource.type=cloud_run_job" --project jos-transcripts
 ```
+
+## Contributing
+
+We welcome contributions! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
+
+**Getting Started:**
+- Read the [Contributing Guide](CONTRIBUTING.md) for development setup, testing, and submission guidelines
+- Check out [open issues](https://github.com/mzakany23/video-to-transcript/issues) for tasks to work on
+- Fork the repo and create a feature branch
+- Write tests for your changes
+- Submit a pull request
+
+**Quick Development Setup:**
+```bash
+# Fork and clone the repo
+git clone https://github.com/YOUR_USERNAME/transcripts.git
+cd transcripts
+
+# Set up worker
+cd worker/
+uv sync
+source .venv/bin/activate
+
+# Run tests
+make test
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for complete details on:
+- Development environment setup
+- Running tests locally
+- Code style guidelines
+- Pull request process
+- Project architecture
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**TL;DR:** You can use, modify, and distribute this software freely, even for commercial purposes. Just include the original copyright notice.
