@@ -20,3 +20,11 @@ notification_emails = ["recipient@example.com"]   # List of emails to receive no
 # Service versions - bump these to trigger deployments
 webhook_version      = "v1.2.2"
 worker_image_version = "v1.1.1"
+downloader_version   = "v1.0.0"
+
+# Zoom credentials (optional - only needed if using Zoom downloader service)
+# To enable Zoom integration, uncomment and fill in these values:
+# zoom_account_id     = "your-zoom-account-id"
+# zoom_client_id      = "your-zoom-client-id"
+# zoom_client_secret  = "your-zoom-client-secret"
+# zoom_webhook_secret = "your-zoom-webhook-secret"

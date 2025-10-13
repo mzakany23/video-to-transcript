@@ -34,9 +34,19 @@ jobs:
           # Get versions from CHANGELOGs (first ## [X.Y.Z] line)
           WEBHOOK_VERSION=$(grep -m1 '^## \[' webhook/CHANGELOG.md | sed 's/## \[\(.*\)\].*/v\1/')
           WORKER_VERSION=$(grep -m1 '^## \[' worker/CHANGELOG.md | sed 's/## \[\(.*\)\].*/v\1/')
+
+          # Get downloader version (handle Unreleased)
+          DOWNLOADER_RAW=$(grep -m1 '^## \[' downloader/CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
+          if [ "$DOWNLOADER_RAW" = "Unreleased" ]; then
+            DOWNLOADER_VERSION="v1.0.0"
+          else
+            DOWNLOADER_VERSION="v$DOWNLOADER_RAW"
+          fi
+
           echo "WEBHOOK_VERSION=$WEBHOOK_VERSION" >> $GITHUB_OUTPUT
           echo "WORKER_VERSION=$WORKER_VERSION" >> $GITHUB_OUTPUT
-          echo "📋 CHANGELOG versions - webhook: $WEBHOOK_VERSION, worker: $WORKER_VERSION"
+          echo "DOWNLOADER_VERSION=$DOWNLOADER_VERSION" >> $GITHUB_OUTPUT
+          echo "📋 CHANGELOG versions - webhook: $WEBHOOK_VERSION, worker: $WORKER_VERSION, downloader: $DOWNLOADER_VERSION"
 
       - name: Check if webhook needs deployment
         id: webhook_check
@@ -102,6 +112,7 @@ jobs:
           TF_VAR_region: ${{ env.REGION }}
           TF_VAR_worker_image_version: ${{ steps.version.outputs.WORKER_VERSION }}
           TF_VAR_webhook_version: ${{ steps.version.outputs.WEBHOOK_VERSION }}
+          TF_VAR_downloader_version: ${{ steps.version.outputs.DOWNLOADER_VERSION }}
           TF_VAR_dropbox_access_token: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
           TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
@@ -112,6 +123,10 @@ jobs:
           TF_VAR_dropbox_raw_folder: ${{ secrets.DROPBOX_RAW_FOLDER }}
           TF_VAR_dropbox_processed_folder: ${{ secrets.DROPBOX_PROCESSED_FOLDER }}
           TF_VAR_sentry_dsn: ${{ secrets.SENTRY_DSN }}
+          TF_VAR_zoom_account_id: ${{ secrets.ZOOM_ACCOUNT_ID }}
+          TF_VAR_zoom_client_id: ${{ secrets.ZOOM_CLIENT_ID }}
+          TF_VAR_zoom_client_secret: ${{ secrets.ZOOM_CLIENT_SECRET }}
+          TF_VAR_zoom_webhook_secret: ${{ secrets.ZOOM_WEBHOOK_SECRET }}
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && steps.webhook_check.outputs.needs_deploy == 'true'
@@ -125,6 +140,7 @@ jobs:
           TF_VAR_region: ${{ env.REGION }}
           TF_VAR_worker_image_version: ${{ steps.version.outputs.WORKER_VERSION }}
           TF_VAR_webhook_version: ${{ steps.version.outputs.WEBHOOK_VERSION }}
+          TF_VAR_downloader_version: ${{ steps.version.outputs.DOWNLOADER_VERSION }}
           TF_VAR_dropbox_access_token: ${{ secrets.DROPBOX_ACCESS_TOKEN }}
           TF_VAR_dropbox_app_secret: ${{ secrets.DROPBOX_APP_SECRET }}
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
@@ -135,6 +151,10 @@ jobs:
           TF_VAR_dropbox_raw_folder: ${{ secrets.DROPBOX_RAW_FOLDER }}
           TF_VAR_dropbox_processed_folder: ${{ secrets.DROPBOX_PROCESSED_FOLDER }}
           TF_VAR_sentry_dsn: ${{ secrets.SENTRY_DSN }}
+          TF_VAR_zoom_account_id: ${{ secrets.ZOOM_ACCOUNT_ID }}
+          TF_VAR_zoom_client_id: ${{ secrets.ZOOM_CLIENT_ID }}
+          TF_VAR_zoom_client_secret: ${{ secrets.ZOOM_CLIENT_SECRET }}
+          TF_VAR_zoom_webhook_secret: ${{ secrets.ZOOM_WEBHOOK_SECRET }}
 
       - name: Get outputs
         if: success() && steps.webhook_check.outputs.needs_deploy == 'true'
@@ -192,4 +212,27 @@ jobs:
             echo "✅ Created tag: $WORKER_TAG"
           else
             echo "⏭️ Tag already exists: $WORKER_TAG"
+          fi
+
+          # Extract downloader version from CHANGELOG (handle Unreleased)
+          DOWNLOADER_RAW=$(grep -m1 '^## \[' downloader/CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
+          if [ "$DOWNLOADER_RAW" != "Unreleased" ]; then
+            DOWNLOADER_TAG="downloader-v$DOWNLOADER_RAW"
+
+            # Create downloader tag if it doesn't exist
+            if ! git rev-parse "$DOWNLOADER_TAG" >/dev/null 2>&1; then
+              DOWNLOADER_NOTES=$(awk '/^## \[/{flag=1; next} /^## \[/{flag=0} flag' downloader/CHANGELOG.md | head -20)
+              git tag -a "$DOWNLOADER_TAG" -m "$(cat <<EOF
+          Release $DOWNLOADER_TAG
+
+          $DOWNLOADER_NOTES
+          EOF
+          )"
+              git push origin "$DOWNLOADER_TAG"
+              echo "✅ Created tag: $DOWNLOADER_TAG"
+            else
+              echo "⏭️ Tag already exists: $DOWNLOADER_TAG"
+            fi
+          else
+            echo "ℹ️ Downloader version is Unreleased - skipping tag"
           fi
