@@ -1,5 +1,13 @@
 # Transcripts
 
+[![Deploy Terraform](https://github.com/mzakany23/video-to-transcript/actions/workflows/deploy-terraform.yml/badge.svg)](https://github.com/mzakany23/video-to-transcript/actions/workflows/deploy-terraform.yml)
+[![Deploy Worker](https://github.com/mzakany23/video-to-transcript/actions/workflows/deploy-worker.yml/badge.svg)](https://github.com/mzakany23/video-to-transcript/actions/workflows/deploy-worker.yml)
+[![PR Checks](https://github.com/mzakany23/video-to-transcript/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/mzakany23/video-to-transcript/actions/workflows/pr-checks.yml)
+[![Worker Release](https://img.shields.io/github/v/release/mzakany23/video-to-transcript?filter=worker-*&label=worker)](https://github.com/mzakany23/video-to-transcript/releases?q=worker)
+[![Webhook Release](https://img.shields.io/github/v/release/mzakany23/video-to-transcript?filter=webhook-*&label=webhook)](https://github.com/mzakany23/video-to-transcript/releases?q=webhook)
+[![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload files to Dropbox, get transcripts automatically.
 
 ## Table of Contents
