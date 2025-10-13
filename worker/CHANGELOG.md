@@ -5,6 +5,15 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2025-10-13
+
+### Fixed
+- **Critical**: Fixed summary emails not being sent to users
+  - Topic analysis was being generated but not passed to email notification function
+  - `dropbox_handler.py` now includes topic_analysis in returned results dict
+  - `main.py` now correctly checks upload_result for topic_analysis
+  - Users will now receive premium HTML summary emails after successful transcription
+
 ## [1.3.1] - 2025-10-13
 
 ### Fixed

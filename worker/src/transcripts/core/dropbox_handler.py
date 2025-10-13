@@ -316,6 +316,10 @@ class DropboxHandler:
             except Exception as e:
                 print(f"⚠️ Could not create shareable links: {e}")
 
+            # Add topic analysis to results for email notifications
+            if topic_analysis:
+                results['topic_analysis'] = topic_analysis
+
             print(f"📁 Results uploaded to: {processing_folder}")
             return results
 

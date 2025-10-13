@@ -389,9 +389,9 @@ class TranscriptionJobProcessor:
 
             # Send summary email to users (if topic analysis available)
             try:
-                # Check if we have topic analysis in the transcript data
-                if 'topic_analysis' in transcript_result['transcript_data']:
-                    topic_analysis = transcript_result['transcript_data']['topic_analysis']
+                # Check if we have topic analysis in the upload result
+                if 'topic_analysis' in upload_result:
+                    topic_analysis = upload_result['topic_analysis']
                     dropbox_links = {
                         'summary_share_url': upload_result.get('summary_share_url'),
                         'txt_share_url': upload_result.get('txt_share_url'),
