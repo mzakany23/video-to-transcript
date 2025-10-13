@@ -70,7 +70,21 @@ class TopicAnalyzer:
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are an expert at analyzing transcripts and identifying logical topic boundaries. You provide structured, accurate summaries with timestamps."
+                        "content": """You are an expert transcript analyst with deep expertise in extracting insights, patterns, and wisdom from conversations.
+
+Your mission is to go beyond surface-level summarization and provide rich, actionable analysis that helps people understand not just WHAT was said, but WHY it matters, WHAT it means, and HOW to apply it.
+
+You excel at:
+- Identifying key insights, breakthrough moments, and wisdom
+- Extracting practical lessons and actionable takeaways
+- Capturing memorable stories, anecdotes, and personal experiences
+- Recognizing patterns, themes, and connections across topics
+- Highlighting resources, tools, techniques, and frameworks mentioned
+- Understanding context, subtext, and deeper meaning
+- Finding the gold nuggets that make content truly valuable
+- Detecting shifts in energy, tone, or direction in conversations
+
+You analyze all types of content: business meetings, podcasts, coaching calls, interviews, workshops, brainstorms, client calls, and more. You adapt your analysis style to the content type while maintaining depth and insight."""
                     },
                     {
                         "role": "user",
@@ -118,55 +132,102 @@ class TopicAnalyzer:
 
         duration_formatted = format_timestamp(duration)
 
-        prompt = f"""Analyze this transcript and identify logical topic boundaries.
+        prompt = f"""Analyze this transcript deeply to extract maximum value, insights, and wisdom.
 
-TRANSCRIPT INFO:
-- Duration: {duration_formatted}
-- Total segments: {len(segments)}
+═══════════════════════════════════════════════════════════════════════════════
+TRANSCRIPT DETAILS
+═══════════════════════════════════════════════════════════════════════════════
+Duration: {duration_formatted}
+Total segments: {len(segments)}
 
 SAMPLE SEGMENTS WITH TIMESTAMPS:
 {segments_text}
 
 FULL TRANSCRIPT TEXT:
-{full_text[:8000]}{"..." if len(full_text) > 8000 else ""}
+{full_text[:12000]}{"..." if len(full_text) > 12000 else ""}
 
-TASK:
-Identify 3-8 logical topics in this transcript. For each topic:
-1. Determine start and end segment IDs (0-based index)
-2. Create a descriptive title (5-8 words)
-3. Write a 2-3 sentence summary
-4. Extract 3-5 key points (bullet format)
-5. Identify any key quotes (if notable)
-6. List any action items mentioned
-7. List any decisions made
+═══════════════════════════════════════════════════════════════════════════════
+YOUR ANALYSIS MISSION
+═══════════════════════════════════════════════════════════════════════════════
 
-Also provide:
-- An executive summary (2-3 sentences) of the entire conversation
-- Overall themes and takeaways
+**STEP 1: Identify Topics (5-15 topics depending on length)**
+Break down the conversation into natural topic boundaries. For short content (<15 min), aim for 5-8 topics. For longer content (>30 min), aim for 10-15 topics for better granularity.
 
-Return your analysis as a JSON object with this structure:
+**STEP 2: For EACH topic, provide:**
+
+1. **Title**: Compelling, specific title (5-10 words) that captures the essence
+2. **Segment IDs**: start_segment_id and end_segment_id (0-based index)
+3. **Summary**: 2-4 sentences that explain WHAT was discussed and WHY it matters
+4. **Key Insights** (3-7 items): The breakthrough moments, wisdom, and learnings. Go deep here - what can people actually learn and apply?
+5. **Memorable Quotes** (1-5 if applicable): Powerful, quotable moments that capture wisdom or emotion. Include speaker context if relevant.
+6. **Stories/Anecdotes** (if any): Personal experiences or examples shared. These make content memorable.
+7. **Resources Mentioned** (if any): Books, tools, frameworks, techniques, practices, or methodologies mentioned
+8. **Action Items** (if any): Specific actions, next steps, or commitments made
+9. **Decisions** (if any): Conclusions reached or choices made
+10. **Key Themes** (1-3): Overarching themes present in this topic
+
+**STEP 3: Executive Summary**
+Write a compelling 3-5 sentence executive summary that captures:
+- The main narrative arc or purpose of the conversation
+- The most important insights or takeaways
+- Who would benefit from this content and why
+
+**STEP 4: Overall Analysis**
+Provide:
+- **Main Themes** (3-7): The big-picture themes across the entire conversation
+- **Content Type** (infer this): Is this a podcast, business meeting, coaching call, interview, workshop, brainstorm, etc.?
+- **Key Takeaways** (5-10): The most valuable lessons, insights, or wisdom someone should remember
+
+═══════════════════════════════════════════════════════════════════════════════
+JSON STRUCTURE
+═══════════════════════════════════════════════════════════════════════════════
+
+Return your analysis as ONLY valid JSON (no other text) with this structure:
+
 {{
-  "executive_summary": "2-3 sentence overview",
+  "executive_summary": "3-5 sentence compelling overview",
+  "content_type": "podcast/meeting/coaching/interview/workshop/etc",
   "topics": [
     {{
       "id": 1,
-      "title": "Topic title here",
+      "title": "Compelling specific title here",
       "start_segment_id": 0,
       "end_segment_id": 10,
-      "summary": "2-3 sentence summary",
-      "key_points": ["point 1", "point 2", "point 3"],
-      "key_quotes": ["quote if notable"],
-      "action_items": ["action if any"],
-      "decisions": ["decision if any"]
+      "summary": "2-4 sentences explaining what AND why it matters",
+      "key_insights": ["Deep insight 1", "Wisdom point 2", "Practical learning 3"],
+      "key_quotes": ["Memorable quote 1", "Powerful quote 2"],
+      "stories": ["Brief description of story/anecdote if shared"],
+      "resources": ["Book: The Power of Now by Eckhart Tolle", "Technique: Box breathing"],
+      "action_items": ["Specific action if mentioned"],
+      "decisions": ["Decision if made"],
+      "themes": ["Theme 1", "Theme 2"]
     }}
   ],
   "metadata": {{
-    "total_topics": 5,
-    "main_themes": ["theme 1", "theme 2"]
+    "total_topics": 12,
+    "main_themes": ["Theme 1", "Theme 2", "Theme 3"],
+    "key_takeaways": ["Takeaway 1", "Takeaway 2", "Takeaway 3"]
   }}
 }}
 
-IMPORTANT: Return ONLY valid JSON, no other text."""
+═══════════════════════════════════════════════════════════════════════════════
+ANALYSIS GUIDELINES
+═══════════════════════════════════════════════════════════════════════════════
+
+✓ GO DEEP: Extract real insights, not just "they discussed X"
+✓ BE SPECIFIC: Use actual examples, numbers, and details from the transcript
+✓ CAPTURE WISDOM: Find the profound moments and breakthrough insights
+✓ TELL STORIES: Highlight personal experiences and anecdotes shared
+✓ FIND PATTERNS: Connect ideas across topics and identify recurring themes
+✓ EXTRACT VALUE: Focus on what makes this content worth consuming
+✓ BE GRANULAR: More topics = better navigation (aim for 5-8 min per topic)
+✓ INCLUDE RESOURCES: Always capture books, tools, and techniques mentioned
+
+✗ AVOID: Generic summaries like "they talked about mindfulness"
+✗ AVOID: Missing important quotes, stories, or resources
+✗ AVOID: Too few topics for long content (>1 hour should have 10+ topics)
+
+IMPORTANT: Return ONLY valid JSON, no markdown, no explanations, just pure JSON."""
 
         return prompt
 
@@ -200,16 +261,20 @@ IMPORTANT: Return ONLY valid JSON, no other text."""
                 'start_segment_id': start_seg_id,
                 'end_segment_id': end_seg_id,
                 'summary': topic.get('summary', ''),
-                'key_points': topic.get('key_points', []),
+                'key_points': topic.get('key_points', topic.get('key_insights', [])),  # Support both old and new field names
                 'key_quotes': topic.get('key_quotes', []),
+                'stories': topic.get('stories', []),
+                'resources': topic.get('resources', []),
                 'action_items': topic.get('action_items', []),
-                'decisions': topic.get('decisions', [])
+                'decisions': topic.get('decisions', []),
+                'themes': topic.get('themes', [])
             }
 
             formatted_topics.append(formatted_topic)
 
         return {
             'executive_summary': analysis.get('executive_summary', ''),
+            'content_type': analysis.get('content_type', 'conversation'),
             'topics': formatted_topics,
             'metadata': {
                 'total_topics': len(formatted_topics),
@@ -217,6 +282,7 @@ IMPORTANT: Return ONLY valid JSON, no other text."""
                 'duration_formatted': format_timestamp(duration),
                 'language': language,
                 'main_themes': analysis.get('metadata', {}).get('main_themes', []),
+                'key_takeaways': analysis.get('metadata', {}).get('key_takeaways', []),
                 'model_used': self.model,
                 'analyzed_at': datetime.now().isoformat()
             }

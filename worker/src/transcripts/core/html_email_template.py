@@ -238,6 +238,8 @@ class HTMLEmailTemplate:
         summary = topic.get('summary', '')
         key_points = topic.get('key_points', [])
         quotes = topic.get('key_quotes', [])
+        stories = topic.get('stories', [])
+        resources = topic.get('resources', [])
         actions = topic.get('action_items', [])
         decisions = topic.get('decisions', [])
 
@@ -249,7 +251,7 @@ class HTMLEmailTemplate:
                 for point in key_points
             ])
             key_points_html = f"""
-            <details style="margin: 16px 0;">
+            <details open style="margin: 16px 0;">
                 <summary style="cursor: pointer; color: #667eea; font-weight: 600; font-size: 14px; padding: 8px 0;">
                     Key Points ({len(key_points)})
                 </summary>
@@ -268,11 +270,45 @@ class HTMLEmailTemplate:
                 for quote in quotes
             ])
             quotes_html = f"""
-            <details style="margin: 16px 0;">
+            <details open style="margin: 16px 0;">
                 <summary style="cursor: pointer; color: #667eea; font-weight: 600; font-size: 14px; padding: 8px 0;">
                     Key Quotes ({len(quotes)})
                 </summary>
                 {quotes_list}
+            </details>"""
+
+        # Generate stories HTML
+        stories_html = ''
+        if stories:
+            stories_list = ''.join([
+                f"""<div style="background: #f0f9ff; border-left: 3px solid #0284c7; padding: 12px 16px; margin: 12px 0; border-radius: 4px;">
+                    <div style="color: #0c4a6e; line-height: 1.6;">{HTMLEmailTemplate._escape_html(story)}</div>
+                </div>"""
+                for story in stories
+            ])
+            stories_html = f"""
+            <details open style="margin: 16px 0;">
+                <summary style="cursor: pointer; color: #0284c7; font-weight: 600; font-size: 14px; padding: 8px 0;">
+                    📖 Stories & Anecdotes ({len(stories)})
+                </summary>
+                {stories_list}
+            </details>"""
+
+        # Generate resources HTML
+        resources_html = ''
+        if resources:
+            resources_list = ''.join([
+                f'<li style="margin: 8px 0; color: #7c3aed; line-height: 1.5;">{HTMLEmailTemplate._escape_html(resource)}</li>'
+                for resource in resources
+            ])
+            resources_html = f"""
+            <details open style="margin: 16px 0;">
+                <summary style="cursor: pointer; color: #7c3aed; font-weight: 600; font-size: 14px; padding: 8px 0;">
+                    📚 Resources Mentioned ({len(resources)})
+                </summary>
+                <ul style="margin: 12px 0; padding-left: 20px;">
+                    {resources_list}
+                </ul>
             </details>"""
 
         # Generate action items HTML
@@ -326,6 +362,8 @@ class HTMLEmailTemplate:
 
             {key_points_html}
             {quotes_html}
+            {stories_html}
+            {resources_html}
             {actions_html}
             {decisions_html}
         </div>"""

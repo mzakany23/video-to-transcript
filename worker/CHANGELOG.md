@@ -5,6 +5,42 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.5] - 2025-10-13
+
+### Changed
+- **MAJOR: Completely redesigned analysis prompt for deep insights and wisdom extraction**
+  - Transforms summaries from generic "they discussed X" to actionable strategic insights
+  - Extract 2-3x more topics (10-15 for 1-hour content vs 3-5 previously)
+  - Captures stories, anecdotes, and personal experiences
+  - Identifies and lists all resources mentioned (books, tools, techniques, frameworks)
+  - Generates 5-10 key takeaways with strategic wisdom
+  - Detects content type (podcast, meeting, coaching call, interview, etc.)
+  - Much more granular topics (~5-8 min per topic for better navigation)
+  - Deeper insights focus on WHY it matters and HOW to apply it
+  - Goes beyond summarization to true analysis and wisdom extraction
+
+### Added
+- **New email sections**: Stories & Anecdotes, Resources Mentioned
+- **Key Takeaways section**: 5-10 strategic insights from the entire conversation
+- **Content Type identification**: Automatically detects if it's a podcast, meeting, etc.
+- **Collapsible sections now open by default**: All content visible immediately
+- Enhanced topic analysis with themes per topic
+- Better quote selection (captures wisdom, not just random text)
+
+### Technical Details
+- Completely rewrote system message to prime for analytical thinking
+- Increased prompt from ~500 to ~2000 characters with detailed instructions
+- Added support for: stories, resources, themes, key_takeaways, content_type fields
+- Updated HTML template to display new rich fields
+- Added `open` attribute to all `<details>` tags for better UX
+
+### Example Improvements
+Before (73-min podcast): 4 generic topics, 0 resources, generic summary
+After (73-min podcast): Expected 12-15 detailed topics, resources captured, strategic insights
+
+Before (15-min meeting): "They discussed mobile app launch"
+After (15-min meeting): "Adopt an MVP approach: ship core features first to reduce risk and improve quality"
+
 ## [1.3.4] - 2025-10-13
 
 ### Changed
@@ -14,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Better context understanding and quote extraction
   - 400k token context window for holistic transcript analysis
   - Configurable via `OPENAI_SUMMARIZATION_MODEL` environment variable
-  - Cost: ~$0.25-0.75 per hour of transcript (still very reasonable)
+  - Cost: ~$0.02 per hour of transcript (still very reasonable)
 
 ## [1.3.3] - 2025-10-13
 
