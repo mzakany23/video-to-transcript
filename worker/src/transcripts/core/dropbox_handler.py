@@ -26,11 +26,14 @@ from .summary_formatter import SummaryFormatter
 class DropboxHandler:
     """Handles Dropbox operations for the transcription pipeline"""
     
-    def __init__(self, project_id: str = None):
+    def __init__(self, project_id: str = None, openai_api_key: str = None):
         """Initialize Dropbox handler with automated token management"""
         self.project_id = project_id or Config.PROJECT_ID
         if not self.project_id:
             raise ValueError("Project ID is required for Dropbox authentication")
+
+        # Store OpenAI API key for topic summarization
+        self.openai_api_key = openai_api_key or Config.OPENAI_API_KEY
             
         # Initialize automated auth manager
         self.auth_manager = DropboxAuthManager(self.project_id)
@@ -179,7 +182,8 @@ class DropboxHandler:
             if Config.ENABLE_TOPIC_SUMMARIZATION:
                 try:
                     print("🔍 Generating topic analysis...")
-                    analyzer = TopicAnalyzer()
+                    # Use the OpenAI API key passed to DropboxHandler
+                    analyzer = TopicAnalyzer(api_key=self.openai_api_key)
                     topic_analysis = analyzer.analyze_transcript(transcript_data)
                     print(f"✅ Topic analysis complete: {topic_analysis.get('metadata', {}).get('total_topics', 0)} topics")
                 except Exception as e:

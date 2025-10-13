@@ -86,9 +86,9 @@ class TranscriptionJobProcessor:
         # Get OpenAI API key from Secret Manager
         self.openai_api_key = self._get_secret(self.secret_name)
         self.openai_client = OpenAI(api_key=self.openai_api_key)
-        
-        # Initialize Dropbox handler
-        self.dropbox_handler = DropboxHandler()
+
+        # Initialize Dropbox handler with OpenAI API key for topic summarization
+        self.dropbox_handler = DropboxHandler(openai_api_key=self.openai_api_key)
         
         # Initialize email notification service
         self.notification_service = EmailNotificationService(self.project_id)
