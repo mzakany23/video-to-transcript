@@ -197,6 +197,43 @@ class ZoomClient:
         print("✅ Successfully obtained Zoom access token")
         return self.access_token
 
+    def list_all_recordings(self, user_id: str = "me", page_size: int = 30) -> dict:
+        """
+        List all cloud recordings for a user
+
+        Args:
+            user_id: User ID or 'me' for account-level recordings
+            page_size: Number of recordings per page (max 300)
+
+        Returns:
+            Dictionary with recordings list
+        """
+        if not self.access_token:
+            self.get_access_token()
+
+        print(f"📋 Fetching all recordings for user: {user_id}")
+
+        url = f"{self.base_url}/users/{user_id}/recordings"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        params = {"page_size": page_size}
+
+        response = requests.get(url, headers=headers, params=params, timeout=30)
+
+        if response.status_code != 200:
+            print(f"❌ API Error Response ({response.status_code}):")
+            try:
+                error_data = response.json()
+                print(f"   Error code: {error_data.get('code', 'N/A')}")
+                print(f"   Error message: {error_data.get('message', 'N/A')}")
+            except:
+                print(f"   Response text: {response.text[:500]}")
+
+        response.raise_for_status()
+
+        data = response.json()
+        print(f"✅ Found {len(data.get('meetings', []))} recordings")
+        return data
+
     def get_meeting_recordings(self, meeting_uuid: str) -> dict:
         """
         Fetch meeting recording details from Zoom API
