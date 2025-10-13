@@ -8,7 +8,9 @@
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload files to Dropbox, get transcripts automatically.
+**Automated AI transcription pipeline** that converts audio and video files into searchable transcripts with intelligent topic summaries. Built on Google Cloud Platform with OpenAI Whisper API, featuring automatic topic detection, human-readable timestamps, and seamless Dropbox integration.
+
+Drop a file in Dropbox → Get back transcripts with AI-generated summaries, key points, and action items. Handles files of any size, supports 10+ audio/video formats, and scales automatically.
 
 ## Table of Contents
 
@@ -16,6 +18,8 @@ Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload f
 - [Quick Start](#quick-start)
 - [Development](#development)
 - [Versioning](#versioning)
+  - [Version Control](#version-control)
+  - [CHANGELOG-driven Deployments](#changelog-driven-deployments)
 - [How It Works](#how-it-works)
 - [Architecture](#architecture)
 - [Output Files](#output-files)
@@ -23,12 +27,29 @@ Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload f
 - [Project Structure](#project-structure)
 - [Deployment](#deployment)
   - [CI/CD Pipeline (Recommended)](#cicd-pipeline-recommended)
+    - [Setup (One-time)](#setup-one-time)
   - [Making a New Deployment](#making-a-new-deployment)
+    - [Step 1: Update the CHANGELOG](#step-1-update-the-changelog)
+    - [Step 2: Update terraform.tfvars](#step-2-update-terraformtfvars)
+    - [Step 3: Commit and Push](#step-3-commit-and-push)
+    - [Verification](#verification)
   - [Manual Deployment (Alternative)](#manual-deployment-alternative)
+    - [Initial Setup (One Time)](#initial-setup-one-time)
+    - [Deploy Worker Changes](#deploy-worker-changes)
+    - [Deploy Webhook Changes](#deploy-webhook-changes)
+    - [Deploy Everything (Full Stack)](#deploy-everything-full-stack)
+    - [Quick Deployment Commands](#quick-deployment-commands)
   - [Environment Variables](#environment-variables)
   - [Optional: Sentry Error Tracking](#optional-sentry-error-tracking)
   - [Monitoring](#monitoring)
 - [Troubleshooting](#troubleshooting)
+  - ["OpenAI API key not found"](#openai-api-key-not-found)
+  - ["ffmpeg not found"](#ffmpeg-not-found)
+  - ["Error code: 413 - Maximum content size limit exceeded"](#error-code-413---maximum-content-size-limit-exceeded)
+  - ["Recipient email was refused by the server"](#recipient-email-was-refused-by-the-server)
+  - [Email notifications not arriving](#email-notifications-not-arriving)
+  - [Large files failing to transcribe](#large-files-failing-to-transcribe)
+  - [View detailed error logs](#view-detailed-error-logs)
 - [Contributing](#contributing)
 - [License](#license)
 
