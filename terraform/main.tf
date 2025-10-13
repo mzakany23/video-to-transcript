@@ -719,7 +719,7 @@ resource "google_cloudfunctions2_function" "downloader_handler" {
     max_instance_count    = 5
     min_instance_count    = 0 # Scale to zero = $0 when not used!
     available_memory      = "512Mi"
-    timeout_seconds       = 300 # 5 minutes for large downloads
+    timeout_seconds       = 1200 # 20 minutes for large downloads (handles 1-2 hour recordings, 1-2GB files)
     service_account_email = google_service_account.transcription_service.email
 
     environment_variables = {

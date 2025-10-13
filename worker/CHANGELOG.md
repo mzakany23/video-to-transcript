@@ -5,6 +5,15 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-10-13
+
+### Fixed
+- **Critical**: Fixed Dropbox download to use streaming for large files (1-2GB recordings)
+  - Now downloads in 4MB chunks instead of loading entire file into memory
+  - Prevents out-of-memory issues with 1-2 hour recordings
+  - Added progress logging every 100MB for large files
+  - Fallback to direct download for smaller files if streaming not available
+
 ## [1.3.0] - 2025-10-13
 
 ### Added

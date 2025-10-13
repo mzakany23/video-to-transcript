@@ -5,6 +5,13 @@ All notable changes to the downloader service will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2025-10-13
+
+### Changed
+- Increased Cloud Function timeout from 5 minutes to 20 minutes to handle large files (1-2 hour recordings, 1-2GB)
+- Ensures reliable processing of long recordings without timeout failures
+- Memory (512MB) remains sufficient due to streaming downloads and chunked uploads (4MB chunks)
+
 ## [1.0.8] - 2025-10-13
 
 ### Fixed

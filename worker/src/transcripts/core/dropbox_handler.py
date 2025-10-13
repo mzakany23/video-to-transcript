@@ -140,22 +140,47 @@ class DropboxHandler:
             return []
     
     def download_file(self, file_path: str, file_name: str) -> Optional[Path]:
-        """Download file from Dropbox to temporary location"""
+        """Download file from Dropbox to temporary location using streaming to handle large files"""
         try:
             # Create temporary file
             temp_dir = Path(tempfile.mkdtemp())
             temp_file = temp_dir / f"temp_{file_name}"
-            
-            # Download file from Dropbox
+
+            # Download file from Dropbox with streaming
             metadata, response = self.dbx.files_download(file_path)
-            
+
+            # Stream download in chunks to avoid loading entire file into memory
+            chunk_size = 4 * 1024 * 1024  # 4MB chunks
+            downloaded = 0
+            file_size = metadata.size
+
+            print(f"📥 Downloading {file_name} ({file_size / (1024 * 1024):.1f} MB)...")
+
             with open(temp_file, 'wb') as f:
-                f.write(response.content)
-            
+                # Dropbox SDK returns response.content as bytes, but we can iterate
+                # For very large files, we need to use the raw attribute if available
+                if hasattr(response, 'raw'):
+                    # Stream from raw response
+                    while True:
+                        chunk = response.raw.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+
+                        # Log progress every 100MB
+                        if downloaded % (100 * 1024 * 1024) == 0:
+                            progress = (downloaded / file_size) * 100 if file_size > 0 else 0
+                            print(f"  📊 Progress: {progress:.1f}% ({downloaded / (1024 * 1024):.1f} MB)")
+                else:
+                    # Fallback: write content directly (for smaller files or if raw not available)
+                    # Note: This loads into memory but is kept as fallback
+                    f.write(response.content)
+
             file_size_mb = temp_file.stat().st_size / (1024 * 1024)
             print(f"✅ Downloaded: {file_name} ({file_size_mb:.1f}MB)")
             return temp_file
-            
+
         except Exception as e:
             print(f"❌ Error downloading {file_name}: {e}")
             return None
