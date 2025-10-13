@@ -5,6 +5,44 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-10-12
+
+### Added
+- **Topic Summarization**: AI-powered topic analysis with GPT-4o-mini
+  - Automatically identifies 3-8 topics with timestamps
+  - Extracts key points, quotes, action items, and decisions
+  - Generates executive summary of entire transcript
+  - Configurable model via `OPENAI_SUMMARIZATION_MODEL` env var (default: `gpt-4o-mini`)
+  - Can be disabled via `ENABLE_TOPIC_SUMMARIZATION` env var
+- **Enhanced Timestamps**: Human-readable timestamp formatting
+  - Timestamps now display as `HH:MM:SS` instead of decimal seconds
+  - Duration formatting with appropriate units (seconds/minutes/hours)
+  - Timestamp range formatting for segments
+- **Summary Output Files**: New output formats for better readability
+  - `_SUMMARY.txt` - Plain text summary with topics and timestamps
+  - `_SUMMARY.md` - Markdown summary with formatting and links
+  - Enhanced full transcript with improved timestamp readability
+- **Test Infrastructure**: Comprehensive test suite
+  - 16 unit tests for timestamp utilities
+  - Integration test for E2E pipeline validation
+  - Organized test structure: `tests/unit/` and `tests/integration/`
+  - Updated Makefile with `test`, `test-unit`, `test-integration` targets
+
+### Changed
+- JSON output now includes `topic_analysis` field with structured topic data
+- Full transcript TXT format enhanced with human-readable timestamps
+- Test organization improved with proper unit/integration separation
+
+### Technical Details
+- New modules:
+  - `src/transcripts/utils/timestamp_formatter.py` - Timestamp utilities
+  - `src/transcripts/core/topic_analyzer.py` - GPT-powered topic analysis
+  - `src/transcripts/core/summary_formatter.py` - Summary generation
+- Updated modules:
+  - `src/transcripts/core/dropbox_handler.py` - Integrated topic analysis
+  - `src/transcripts/config.py` - Added summarization configuration
+- Cost: ~$0.01-0.03 per 30-minute transcript with gpt-4o-mini
+
 ## [1.1.1] - 2025-10-12
 
 ### Fixed
@@ -55,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline workflow issues
 - Dependency management improvements
 
+[1.2.0]: https://github.com/mzakany23/video-to-transcript/releases/tag/worker-v1.2.0
 [1.1.1]: https://github.com/mzakany23/video-to-transcript/releases/tag/worker-v1.1.1
 [1.1.0]: https://github.com/mzakany23/video-to-transcript/releases/tag/worker-v1.1.0
 [1.0.1]: https://github.com/mzakany23/video-to-transcript/releases/tag/worker-v1.0.1

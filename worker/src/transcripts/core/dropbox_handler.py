@@ -18,6 +18,9 @@ except ImportError:
 
 from ..config import Config
 from .dropbox_auth import DropboxAuthManager
+from ..utils.timestamp_formatter import format_timestamp, format_duration, format_timestamp_range
+from .topic_analyzer import TopicAnalyzer
+from .summary_formatter import SummaryFormatter
 
 
 class DropboxHandler:
@@ -163,91 +166,169 @@ class DropboxHandler:
         safe_filename = "".join(c for c in base_name if c.isalnum() or c in ('-', '_')).strip()
         folder_name = f"{timestamp}-{safe_filename}"  # e.g., "2025-08-04:15:30-audio_file"
         results = {}
-        
+
         try:
             # Create timestamp+filename folder: processed/2025-08-04:15:30-audio_file/
             processing_folder = f"{Config.PROCESSED_FOLDER}/{folder_name}"
-            
+
             # Ensure folder exists
             self._ensure_folder_exists(processing_folder)
-            
-            # Upload JSON file with simple naming
+
+            # Generate topic analysis if enabled
+            topic_analysis = None
+            if Config.ENABLE_TOPIC_SUMMARIZATION:
+                try:
+                    print("🔍 Generating topic analysis...")
+                    analyzer = TopicAnalyzer()
+                    topic_analysis = analyzer.analyze_transcript(transcript_data)
+                    print(f"✅ Topic analysis complete: {topic_analysis.get('metadata', {}).get('total_topics', 0)} topics")
+                except Exception as e:
+                    print(f"⚠️ Topic analysis failed (continuing without it): {e}")
+                    topic_analysis = None
+
+            # Upload JSON file with simple naming (include topic analysis if available)
             json_filename = f"{base_name}.json"
-            json_content = json.dumps({
+            json_data = {
                 **transcript_data,
                 'original_file': original_file_name,
                 'processed_at': now.isoformat(),
                 'status': 'completed'
-            }, indent=2, ensure_ascii=False)
-            
+            }
+
+            # Add topic analysis to JSON if available
+            if topic_analysis:
+                json_data['topic_analysis'] = topic_analysis
+
+            json_content = json.dumps(json_data, indent=2, ensure_ascii=False)
+
             json_path = f"{processing_folder}/{json_filename}"
-            
+
             self.dbx.files_upload(
                 json_content.encode('utf-8'),
                 json_path,
                 mode=dropbox.files.WriteMode.overwrite
             )
-            
+
             results['json_file_path'] = json_path
             results['json_filename'] = json_filename
             print(f"✅ Uploaded JSON: {json_filename}")
-            
+
+            # Upload SUMMARY file if topic analysis is available
+            if topic_analysis and topic_analysis.get('topics'):
+                summary_filename = f"{base_name}_SUMMARY.txt"
+                summary_content = SummaryFormatter.format_summary_text(
+                    transcript_data, topic_analysis, original_file_name
+                )
+
+                summary_path = f"{processing_folder}/{summary_filename}"
+
+                self.dbx.files_upload(
+                    summary_content.encode('utf-8'),
+                    summary_path,
+                    mode=dropbox.files.WriteMode.overwrite
+                )
+
+                results['summary_file_path'] = summary_path
+                results['summary_filename'] = summary_filename
+                print(f"✅ Uploaded SUMMARY: {summary_filename}")
+
+                # Also upload markdown version
+                summary_md_filename = f"{base_name}_SUMMARY.md"
+                summary_md_content = SummaryFormatter.format_summary_markdown(
+                    transcript_data, topic_analysis, original_file_name
+                )
+
+                summary_md_path = f"{processing_folder}/{summary_md_filename}"
+
+                self.dbx.files_upload(
+                    summary_md_content.encode('utf-8'),
+                    summary_md_path,
+                    mode=dropbox.files.WriteMode.overwrite
+                )
+
+                results['summary_md_file_path'] = summary_md_path
+                results['summary_md_filename'] = summary_md_filename
+                print(f"✅ Uploaded SUMMARY (Markdown): {summary_md_filename}")
+
             # Upload TXT file with simple naming
             txt_filename = f"{base_name}.txt"
             txt_content = self._format_transcript_text(transcript_data, original_file_name, now.isoformat())
-            
+
             txt_path = f"{processing_folder}/{txt_filename}"
-            
+
             self.dbx.files_upload(
                 txt_content.encode('utf-8'),
                 txt_path,
                 mode=dropbox.files.WriteMode.overwrite
             )
-            
+
             results['txt_file_path'] = txt_path
             results['txt_filename'] = txt_filename
             print(f"✅ Uploaded TXT: {txt_filename}")
-            
+
             # Create shareable links for easy access
             try:
                 json_link = self.dbx.sharing_create_shared_link(json_path)
                 txt_link = self.dbx.sharing_create_shared_link(txt_path)
-                
+
                 results['json_share_url'] = json_link.url
                 results['txt_share_url'] = txt_link.url
+
+                # Add summary links if available
+                if 'summary_file_path' in results:
+                    try:
+                        summary_link = self.dbx.sharing_create_shared_link(results['summary_file_path'])
+                        results['summary_share_url'] = summary_link.url
+                    except:
+                        pass
+
                 print(f"🔗 Created shareable links")
-                
+
             except Exception as e:
                 print(f"⚠️ Could not create shareable links: {e}")
-            
+
             print(f"📁 Results uploaded to: {processing_folder}")
             return results
-            
+
         except Exception as e:
             print(f"❌ Error uploading transcript results: {e}")
             return {'error': str(e)}
     
     def _format_transcript_text(self, transcript_data: Dict, original_file_name: str, timestamp: str) -> str:
-        """Format transcript data into readable text"""
+        """Format transcript data into readable text with human-readable timestamps"""
+        duration_seconds = transcript_data.get('duration', 0)
+        duration_formatted = format_duration(duration_seconds)
+
         content = f"""Transcription Results
 ===================
 Original File: {original_file_name}
 Processed: {timestamp}
 Language: {transcript_data.get('language', 'unknown')}
-Duration: {transcript_data.get('duration', 0)} seconds
+Duration: {duration_formatted} ({format_timestamp(duration_seconds)})
 
-{transcript_data.get('text', '')}
+FULL TRANSCRIPT
+===============
 
---- Detailed Segments ---
 """
-        
-        # Add segments with timestamps
+
+        # Add full text with paragraph breaks for better readability
+        full_text = transcript_data.get('text', '')
+        content += full_text + "\n\n"
+
+        # Add detailed segments with formatted timestamps
+        content += """--- DETAILED SEGMENTS ---
+
+"""
+
         for segment in transcript_data.get('segments', []):
             start = segment.get('start', 0)
             end = segment.get('end', 0)
-            text = segment.get('text', '')
-            content += f"[{start:.1f}s - {end:.1f}s]: {text}\n"
-        
+            text = segment.get('text', '').strip()
+
+            # Use the new timestamp range formatter
+            timestamp_range = format_timestamp_range(start, end)
+            content += f"{timestamp_range} {text}\n"
+
         return content
     
     def get_folder_info(self) -> Dict[str, str]:

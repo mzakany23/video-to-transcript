@@ -1,8 +1,20 @@
-.PHONY: test install install-dev clean
+.PHONY: test test-unit test-integration test-all install install-dev clean
 
-# Run tests
+# Run unit tests only (fast)
 test:
-	pytest tests/ -v
+	python -m pytest tests/unit/ -v
+
+# Run unit tests explicitly
+test-unit:
+	python -m pytest tests/unit/ -v
+
+# Run integration tests (requires OPENAI_API_KEY and test audio files)
+test-integration:
+	python -m pytest tests/integration/ -v -m integration
+
+# Run all tests
+test-all:
+	python -m pytest tests/ -v
 
 # Install dependencies
 install:

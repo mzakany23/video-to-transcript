@@ -23,6 +23,10 @@ class Config:
     # OpenAI Configuration
     OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = "whisper-1"
+
+    # OpenAI Summarization Configuration
+    OPENAI_SUMMARIZATION_MODEL: str = os.environ.get("OPENAI_SUMMARIZATION_MODEL", "gpt-4o-mini")
+    ENABLE_TOPIC_SUMMARIZATION: bool = os.environ.get("ENABLE_TOPIC_SUMMARIZATION", "true").lower() == "true"
     
     # Google Cloud Configuration
     PROJECT_ID: str = os.environ.get("PROJECT_ID", "")
