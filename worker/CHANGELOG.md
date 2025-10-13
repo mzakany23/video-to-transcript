@@ -5,6 +5,16 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2025-10-13
+
+### Fixed
+- Fixed "Copy All Timestamps" functionality in summary emails
+  - JavaScript buttons don't work in email clients (Gmail, Outlook strip JS for security)
+  - Replaced JavaScript button with selectable text box using `<pre>` tag
+  - All timestamps now displayed with proper line breaks in a scrollable area
+  - Users can click to select all timestamps, then copy with Cmd+C/Ctrl+C
+  - Removed individual copy buttons from topic cards (JS-based)
+
 ## [1.3.2] - 2025-10-13
 
 ### Fixed

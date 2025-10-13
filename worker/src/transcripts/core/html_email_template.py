@@ -50,13 +50,13 @@ class HTMLEmailTemplate:
         # Get dropbox link
         dropbox_link = dropbox_links.get('summary_share_url', dropbox_links.get('txt_share_url', '#'))
 
-        # Generate all timestamps list for copy button
+        # Generate all timestamps list for easy copy
         all_timestamps = '\n'.join([
             f"{topic.get('timestamp_range', '')} - {topic.get('title', '')}"
             for topic in topics
         ])
-        # Escape backticks for JavaScript
-        all_timestamps_escaped = all_timestamps.replace('`', '\\`')
+        # Escape HTML in timestamps
+        all_timestamps = HTMLEmailTemplate._escape_html(all_timestamps)
 
         # Build the email
         html = f"""<!DOCTYPE html>
@@ -92,13 +92,16 @@ class HTMLEmailTemplate:
         <!-- Main Themes -->
         {themes_html}
 
-        <!-- Copy All Timestamps Button -->
-        <div style="padding: 20px 30px 10px 30px; text-align: center;">
-            <button onclick="copyAllTimestamps()" id="copyAllBtn" style="background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                Copy All Timestamps
-            </button>
-            <div id="copyStatus" style="margin-top: 8px; font-size: 13px; color: #10b981; display: none;">
-                ✓ Copied to clipboard!
+        <!-- All Timestamps (Easy Copy) -->
+        <div style="padding: 20px 30px 10px 30px;">
+            <div style="background: #f9fafb; border: 2px solid #667eea; border-radius: 8px; padding: 16px;">
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <strong style="color: #667eea; font-size: 14px;">📋 All Timestamps</strong>
+                    <div style="color: #6b7280; font-size: 12px; margin-top: 4px;">
+                        Click to select all, then copy (Cmd+C or Ctrl+C)
+                    </div>
+                </div>
+                <pre style="background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; font-family: 'Monaco', 'Menlo', 'Courier New', monospace; font-size: 13px; line-height: 1.8; color: #1f2937; max-height: 200px; overflow-y: auto; cursor: text; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; white-space: pre-wrap; margin: 0; word-wrap: break-word;">{all_timestamps}</pre>
             </div>
         </div>
 
@@ -159,49 +162,6 @@ class HTMLEmailTemplate:
         </div>
 
     </div>
-
-    <!-- JavaScript for copy functionality -->
-    <script>
-        const allTimestamps = `{all_timestamps_escaped}`;
-
-        function copyAllTimestamps() {{
-            // Use clipboard API if available
-            if (navigator.clipboard && navigator.clipboard.writeText) {{
-                navigator.clipboard.writeText(allTimestamps).then(() => {{
-                    showCopyStatus();
-                }}).catch(err => {{
-                    // Fallback for older browsers
-                    fallbackCopy(allTimestamps);
-                }});
-            }} else {{
-                fallbackCopy(allTimestamps);
-            }}
-        }}
-
-        function fallbackCopy(text) {{
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            textarea.style.position = 'fixed';
-            textarea.style.opacity = '0';
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {{
-                document.execCommand('copy');
-                showCopyStatus();
-            }} catch (err) {{
-                console.error('Failed to copy:', err);
-            }}
-            document.body.removeChild(textarea);
-        }}
-
-        function showCopyStatus() {{
-            const status = document.getElementById('copyStatus');
-            status.style.display = 'block';
-            setTimeout(() => {{
-                status.style.display = 'none';
-            }}, 3000);
-        }}
-    </script>
 </body>
 </html>"""
 
@@ -345,11 +305,8 @@ class HTMLEmailTemplate:
                 </ul>
             </div>"""
 
-        # Copy button for timestamp (using data attribute for easy JS copy)
-        copy_button_html = f"""
-        <button onclick="navigator.clipboard.writeText('{timestamp_range}')" style="background: #f3f4f6; border: 1px solid #d1d5db; color: #4b5563; padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-left: 8px;">
-            Copy
-        </button>"""
+        # Individual timestamp display (removed copy button since JS doesn't work in emails)
+        copy_button_html = ""
 
         return f"""
         <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin: 0 0 16px 0; background: #ffffff;">
