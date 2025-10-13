@@ -43,8 +43,13 @@ variable "gmail_app_password" {
   sensitive   = true
 }
 
-variable "notification_emails" {
-  description = "List of email addresses to receive notifications"
+variable "developer_emails" {
+  description = "List of developer email addresses (receives debug emails: kickoff, success, failure)"
+  type        = list(string)
+}
+
+variable "user_emails" {
+  description = "List of user email addresses (receives polished summary emails only)"
   type        = list(string)
 }
 
@@ -468,8 +473,13 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
         }
 
         env {
-          name  = "NOTIFICATION_EMAIL"
-          value = join(",", var.notification_emails)
+          name  = "DEVELOPER_EMAILS"
+          value = join(",", var.developer_emails)
+        }
+
+        env {
+          name  = "USER_EMAILS"
+          value = join(",", var.user_emails)
         }
 
         env {

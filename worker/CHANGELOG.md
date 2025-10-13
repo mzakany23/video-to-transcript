@@ -5,6 +5,50 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-10-13
+
+### Added
+- **Premium HTML Summary Emails**: Users now receive beautifully formatted HTML emails with transcript summaries
+  - Sleek, responsive email design with collapsible sections for topics
+  - Executive summary, main themes, and topic cards with timestamps
+  - Action items and decisions highlighted in colored sections
+  - **"Copy All Timestamps" button** - One-click to copy all timestamps with titles for easy pasting into podcasts, Instagram, or other apps
+  - Individual copy buttons for each timestamp
+  - Plain text fallback for email clients that don't support HTML
+  - Direct link to full transcript in Dropbox
+- **Email Recipient Segmentation**: Separate email lists for different notification types
+  - `DEVELOPER_EMAILS` env var: Receives debug emails (job start, completion, errors)
+  - `USER_EMAILS` env var: Receives only polished summary emails
+  - Allows developers to get technical notifications while users only see finished results
+
+### Changed
+- Existing job completion/error/start emails now only sent to developer email list
+- Summary emails are sent to user email list after successful transcription (if topic analysis available)
+- Summary email subject line: "Summary Ready: [filename]"
+
+### Technical Details
+- New modules:
+  - `src/transcripts/core/html_email_template.py` - HTML email template generator with responsive design
+- Updated modules:
+  - `src/transcripts/core/notifications.py` - Added `send_summary_email()` method and email list segmentation
+  - `main.py` - Integrated summary email sending after successful transcription
+  - `src/transcripts/config.py` - Added `DEVELOPER_EMAILS` and `USER_EMAILS` configuration
+- Terraform changes:
+  - Added `developer_emails` and `user_emails` variables to `terraform/main.tf`
+  - `notification_emails` variable now deprecated (use new vars instead)
+
+### Migration Guide
+Update your `terraform.tfvars` to use the new email segmentation:
+
+```hcl
+# New (recommended):
+developer_emails = ["mzakany@gmail.com"]
+user_emails = ["jrpvla@gmail.com", "mzakany@gmail.com"]
+
+# Old (still works as fallback):
+# notification_emails = ["mzakany@gmail.com"]
+```
+
 ## [1.2.1] - 2025-10-13
 
 ### Fixed

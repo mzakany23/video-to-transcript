@@ -1,0 +1,86 @@
+TRANSCRIPT SUMMARY
+============================================================
+
+2025-10-13-Weekly_Team_Standup-shared_screen_with_speaker_view.mp4
+October 13, 2025 | 30:00 | ENGLISH
+
+EXECUTIVE SUMMARY
+------------------------------------------------------------
+
+This meeting covered Q1 priorities, discussed the new feature launch timeline, and resolved a critical deployment blocker. The team aligned on resource allocation and established clear action items for the upcoming sprint.
+
+MAIN THEMES
+------------------------------------------------------------
+• Quarterly Planning
+• Technical Debt Management
+• Product Launch
+• Team Collaboration
+
+TOPICS & TIMESTAMPS
+============================================================
+
+[00:05 - 12:30] 1. Q1 Priorities Review
+------------------------------------------------------------
+Team reviewed quarterly goals and adjusted priorities based on customer feedback. Focus shifted to mobile experience improvements and technical debt reduction.
+
+Key Points:
+  • Focus on mobile experience improvements
+  • Allocate 30% of resources to technical debt
+  • New hire onboarding scheduled for Q1
+
+Action Items:
+  ✓ Create detailed sprint plan by Friday
+  ✓ Schedule technical debt review meeting
+  ✓ Send onboarding materials to new hire
+
+Decisions Made:
+  ✓ Approved 30% resource allocation to technical debt
+  ✓ Agreed to delay feature X to focus on mobile
+
+
+[12:30 - 18:45] 2. Deployment Blocker Resolution
+------------------------------------------------------------
+Identified and resolved the critical deployment issue affecting production. Root cause was a database migration conflict.
+
+Key Points:
+  • Database migration conflict identified
+  • Hotfix deployed successfully
+  • Monitoring alerts configured
+
+Action Items:
+  ✓ Update deployment documentation
+  ✓ Add migration order validation to CI/CD
+
+Decisions Made:
+  ✓ Implement pre-deployment migration checks
+
+
+[18:45 - 30:00] 3. New Feature Launch Timeline
+------------------------------------------------------------
+Discussed timeline for the new analytics dashboard launch. Beta testing will begin next week with select customers.
+
+Key Points:
+  • Beta launch scheduled for next week
+  • 5 pilot customers selected
+  • Full launch targeted for end of month
+
+Action Items:
+  ✓ Send beta invitations to pilot customers
+  ✓ Prepare customer feedback survey
+  ✓ Schedule launch retrospective
+
+Decisions Made:
+  ✓ Beta launch date confirmed: October 20th
+  ✓ Full launch date: October 31st
+
+
+QUICK REFERENCE
+============================================================
+Topics: 3
+Action Items: 8
+Decisions: 5
+
+View Full Transcript: https://www.dropbox.com/s/abc123/sample_SUMMARY.txt
+
+------------------------------------------------------------
+Generated with AI • Timestamps link to original segments

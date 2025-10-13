@@ -386,13 +386,36 @@ class TranscriptionJobProcessor:
             upload_result = self.dropbox_handler.upload_transcript_results(
                 transcript_result['transcript_data'], file_name
             )
-            
+
+            # Send summary email to users (if topic analysis available)
+            try:
+                # Check if we have topic analysis in the transcript data
+                if 'topic_analysis' in transcript_result['transcript_data']:
+                    topic_analysis = transcript_result['transcript_data']['topic_analysis']
+                    dropbox_links = {
+                        'summary_share_url': upload_result.get('summary_share_url'),
+                        'txt_share_url': upload_result.get('txt_share_url'),
+                        'json_share_url': upload_result.get('json_share_url')
+                    }
+
+                    self.notification_service.send_summary_email(
+                        transcript_result['transcript_data'],
+                        topic_analysis,
+                        file_name,
+                        dropbox_links
+                    )
+                else:
+                    print("ℹ️ No topic analysis found, skipping summary email")
+            except Exception as e:
+                # Don't fail the job if email fails
+                print(f"⚠️ Failed to send summary email (continuing): {str(e)}")
+
             # Clean up temporary files
             if temp_file_path.exists():
                 temp_file_path.unlink()
             if audio_file_path != temp_file_path and audio_file_path.exists():
                 audio_file_path.unlink()
-            
+
             return {
                 'success': True,
                 'file_name': file_name,

@@ -11,6 +11,7 @@ from email.mime.multipart import MIMEMultipart
 from google.cloud import secretmanager
 
 from ..config import Config
+from .html_email_template import HTMLEmailTemplate
 
 
 class EmailNotificationService:
@@ -20,8 +21,12 @@ class EmailNotificationService:
         """Initialize email notification service with Gmail credentials from Secret Manager"""
         self.project_id = project_id
         self.enabled = Config.ENABLE_EMAIL_NOTIFICATIONS
-        # Parse comma-separated email list
-        self.recipient_emails = [email.strip() for email in Config.NOTIFICATION_EMAIL.split(',') if email.strip()]
+
+        # Parse email lists
+        # Developer emails: Get debug notifications (kickoff, success, failure, errors)
+        self.developer_emails = [email.strip() for email in Config.DEVELOPER_EMAILS.split(',') if email.strip()]
+        # User emails: Get polished summary emails only
+        self.user_emails = [email.strip() for email in Config.USER_EMAILS.split(',') if email.strip()]
         
         if not self.enabled:
             print("📧 Email notifications disabled")
@@ -71,7 +76,7 @@ class EmailNotificationService:
         message = MIMEMultipart("alternative")
         message["Subject"] = "🎬 Transcription Job Complete"
         message["From"] = self.sender_email
-        message["To"] = ", ".join(self.recipient_emails)
+        message["To"] = ", ".join(self.developer_emails)
         
         # Extract job details
         processed = job_summary.get('processed_count', 0)
@@ -185,7 +190,7 @@ This is an automated notification from your transcription pipeline.
         message = MIMEMultipart("alternative")
         message["Subject"] = "🚨 Transcription Job Error"
         message["From"] = self.sender_email
-        message["To"] = ", ".join(self.recipient_emails)
+        message["To"] = ", ".join(self.developer_emails)
         
         # Create HTML content
         html_content = f"""
@@ -267,16 +272,16 @@ Please check the system logs for more details.
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()  # Enable TLS encryption
                 server.login(self.sender_email, self.app_password)
-                server.sendmail(self.sender_email, self.recipient_emails, message.as_string())
+                server.sendmail(self.sender_email, self.developer_emails, message.as_string())
 
-            print(f"📧 Email notification sent to {', '.join(self.recipient_emails)}")
+            print(f"📧 Email notification sent to {', '.join(self.developer_emails)}")
             return True
 
         except smtplib.SMTPAuthenticationError:
             print("❌ Gmail authentication failed. Check your app password.")
             return False
         except smtplib.SMTPRecipientsRefused as e:
-            print(f"❌ Recipient emails {', '.join(self.recipient_emails)} were refused by the server: {e}")
+            print(f"❌ Recipient emails {', '.join(self.developer_emails)} were refused by the server: {e}")
             return False
         except smtplib.SMTPException as e:
             print(f"❌ SMTP error occurred: {e}")
@@ -304,16 +309,16 @@ Please check the system logs for more details.
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()  # Enable TLS encryption
                 server.login(self.sender_email, self.app_password)
-                server.sendmail(self.sender_email, self.recipient_emails, message.as_string())
+                server.sendmail(self.sender_email, self.developer_emails, message.as_string())
 
-            print(f"📧 Error email notification sent to {', '.join(self.recipient_emails)}")
+            print(f"📧 Error email notification sent to {', '.join(self.developer_emails)}")
             return True
 
         except smtplib.SMTPAuthenticationError:
             print("❌ Gmail authentication failed. Check your app password.")
             return False
         except smtplib.SMTPRecipientsRefused as e:
-            print(f"❌ Recipient emails {', '.join(self.recipient_emails)} were refused by the server: {e}")
+            print(f"❌ Recipient emails {', '.join(self.developer_emails)} were refused by the server: {e}")
             return False  
         except smtplib.SMTPException as e:
             print(f"❌ SMTP error occurred: {e}")
@@ -327,7 +332,7 @@ Please check the system logs for more details.
         message = MIMEMultipart("alternative")
         message["Subject"] = "🚀 Transcription Job Started"
         message["From"] = self.sender_email
-        message["To"] = ", ".join(self.recipient_emails)
+        message["To"] = ", ".join(self.developer_emails)
 
         # Extract file details
         file_name = file_info.get('file_name', 'Unknown')
@@ -423,20 +428,90 @@ This is an automated notification from your transcription pipeline.
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()  # Enable TLS encryption
                 server.login(self.sender_email, self.app_password)
-                server.sendmail(self.sender_email, self.recipient_emails, message.as_string())
+                server.sendmail(self.sender_email, self.developer_emails, message.as_string())
 
-            print(f"📧 Job start email sent to {', '.join(self.recipient_emails)}")
+            print(f"📧 Job start email sent to {', '.join(self.developer_emails)}")
             return True
 
         except smtplib.SMTPAuthenticationError:
             print("❌ Gmail authentication failed. Check your app password.")
             return False
         except smtplib.SMTPRecipientsRefused as e:
-            print(f"❌ Recipient emails {', '.join(self.recipient_emails)} were refused by the server: {e}")
+            print(f"❌ Recipient emails {', '.join(self.developer_emails)} were refused by the server: {e}")
             return False
         except smtplib.SMTPException as e:
             print(f"❌ SMTP error occurred: {e}")
             return False
         except Exception as e:
             print(f"❌ Failed to send job start email notification: {str(e)}")
+            return False
+
+    def send_summary_email(
+        self,
+        transcript_data: Dict[str, Any],
+        topic_analysis: Dict[str, Any],
+        original_file_name: str,
+        dropbox_links: Dict[str, str]
+    ) -> bool:
+        """
+        Send premium HTML summary email to users
+
+        Args:
+            transcript_data: Original transcript data with segments
+            topic_analysis: Topic analysis from TopicAnalyzer
+            original_file_name: Name of original file
+            dropbox_links: Dictionary with Dropbox share URLs
+
+        Returns:
+            bool: True if notification sent successfully
+        """
+        if not self.enabled:
+            return False
+
+        # Only send summary emails if we have topic analysis
+        if not topic_analysis or not topic_analysis.get('topics'):
+            print("ℹ️ No topic analysis available, skipping summary email")
+            return False
+
+        try:
+            # Generate HTML and plain text versions
+            html_content = HTMLEmailTemplate.generate_summary_email(
+                transcript_data, topic_analysis, original_file_name, dropbox_links
+            )
+            text_content = HTMLEmailTemplate.generate_plain_text_summary(
+                transcript_data, topic_analysis, original_file_name, dropbox_links
+            )
+
+            # Create email message
+            message = MIMEMultipart("alternative")
+            message["Subject"] = f"Summary Ready: {original_file_name}"
+            message["From"] = self.sender_email
+            message["To"] = ", ".join(self.user_emails)
+
+            # Attach both versions
+            text_part = MIMEText(text_content, "plain")
+            html_part = MIMEText(html_content, "html")
+            message.attach(text_part)
+            message.attach(html_part)
+
+            # Send email
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.sender_email, self.app_password)
+                server.sendmail(self.sender_email, self.user_emails, message.as_string())
+
+            print(f"📧 Summary email sent to {', '.join(self.user_emails)}")
+            return True
+
+        except smtplib.SMTPAuthenticationError:
+            print("❌ Gmail authentication failed. Check your app password.")
+            return False
+        except smtplib.SMTPRecipientsRefused as e:
+            print(f"❌ Recipient emails {', '.join(self.user_emails)} were refused by the server: {e}")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"❌ SMTP error occurred: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Failed to send summary email: {str(e)}")
             return False

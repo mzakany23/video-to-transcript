@@ -39,8 +39,13 @@ class Config:
     
     # Gmail Configuration (for email job completion notifications)
     GMAIL_SECRET_NAME: str = os.environ.get("GMAIL_SECRET_NAME", "gmail-credentials")
-    NOTIFICATION_EMAIL: str = os.environ.get("NOTIFICATION_EMAIL", "")  # Email address to send notifications to
     ENABLE_EMAIL_NOTIFICATIONS: bool = os.environ.get("ENABLE_EMAIL_NOTIFICATIONS", "false").lower() == "true"
+
+    # Email Recipient Segmentation
+    # DEVELOPER_EMAILS: Receives all debug emails (kickoff, success, failure, errors)
+    # USER_EMAILS: Receives only polished summary emails
+    DEVELOPER_EMAILS: str = os.environ.get("DEVELOPER_EMAILS", "")
+    USER_EMAILS: str = os.environ.get("USER_EMAILS", "")
     
     # File Processing Configuration
     MAX_FILE_SIZE_MB: int = 25  # OpenAI Whisper limit

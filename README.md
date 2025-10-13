@@ -380,7 +380,8 @@ gcloud run jobs execute transcription-worker --region us-east1 --project jos-tra
 - `ENABLE_TOPIC_SUMMARIZATION`: Enable AI-powered topic analysis (default: `true`)
   - Set to `false` to disable topic summarization and save on API costs
 - `ENABLE_EMAIL_NOTIFICATIONS`: Enable email alerts (default: `false`)
-- `NOTIFICATION_EMAIL`: Comma-separated list of email recipients
+- `DEVELOPER_EMAILS`: Comma-separated developer emails (receives debug emails: kickoff, success, failure)
+- `USER_EMAILS`: Comma-separated user emails (receives polished summary emails only)
 - `GMAIL_SECRET_NAME`: Gmail credentials secret name
 - `MAX_FILES`: Max files per job run (default: `10`)
 - `SENTRY_DSN`: Sentry error tracking DSN (optional)

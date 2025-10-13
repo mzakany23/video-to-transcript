@@ -124,7 +124,8 @@ jobs:
         if: steps.deploy_check.outputs.needs_deploy == 'true'
         run: |
           # Convert comma-separated emails to JSON array format
-          export TF_VAR_notification_emails="[\"$(echo '${{ secrets.NOTIFICATION_EMAILS }}' | sed 's/,/","/g')\"]"
+          export TF_VAR_developer_emails="[\"$(echo '${{ secrets.DEVELOPER_EMAILS }}' | sed 's/,/","/g')\"]"
+          export TF_VAR_user_emails="[\"$(echo '${{ secrets.USER_EMAILS }}' | sed 's/,/","/g')\"]"
           terraform plan -out=tfplan
         working-directory: ./terraform
         env:
@@ -152,7 +153,8 @@ jobs:
         if: github.ref == 'refs/heads/main' && steps.deploy_check.outputs.needs_deploy == 'true'
         run: |
           # Convert comma-separated emails to JSON array format
-          export TF_VAR_notification_emails="[\"$(echo '${{ secrets.NOTIFICATION_EMAILS }}' | sed 's/,/","/g')\"]"
+          export TF_VAR_developer_emails="[\"$(echo '${{ secrets.DEVELOPER_EMAILS }}' | sed 's/,/","/g')\"]"
+          export TF_VAR_user_emails="[\"$(echo '${{ secrets.USER_EMAILS }}' | sed 's/,/","/g')\"]"
           terraform apply -auto-approve tfplan
         working-directory: ./terraform
         env:

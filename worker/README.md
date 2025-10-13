@@ -89,7 +89,8 @@ For each input file `interview.mp4`, generates:
 | `DROPBOX_PROCESSED_FOLDER` | Folder for output files | `/transcripts/processed` |
 | `PROJECT_ID` | GCP project ID for Secret Manager | - |
 | `ENABLE_EMAIL_NOTIFICATIONS` | Enable email alerts | `false` |
-| `NOTIFICATION_EMAIL` | Comma-separated email recipients | - |
+| `DEVELOPER_EMAILS` | Comma-separated developer emails (receives debug emails) | - |
+| `USER_EMAILS` | Comma-separated user emails (receives summary emails only) | - |
 | `MAX_FILES` | Max files to process per run | `10` |
 | `SENTRY_DSN` | Sentry error tracking DSN | - |
 | `SENTRY_ENVIRONMENT` | Sentry environment name | - |
