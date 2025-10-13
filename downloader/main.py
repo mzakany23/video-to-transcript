@@ -420,15 +420,10 @@ class ZoomRecordingProcessor:
                 print(f"⏭️ Recording already processed, skipping")
                 return {'success': True, 'skipped': True, 'reason': 'already_processed'}
 
-            # Fetch recording details from Zoom API (this gives us OAuth-compatible download URLs)
-            # Unlike webhook download URLs which require short-lived download_token,
-            # API download URLs work with our OAuth Bearer token
-            print("🔄 Fetching recording details from Zoom API...")
-            api_recording_data = self.zoom_client.get_meeting_recordings(meeting_uuid)
-
-            # Extract recording files from API response
-            recording_files = api_recording_data.get('recording_files', [])
-            print(f"📁 Found {len(recording_files)} recording files from API")
+            # Use recording files from webhook payload
+            # The webhook provides download URLs directly
+            recording_files = recording_object.get('recording_files', [])
+            print(f"📁 Found {len(recording_files)} recording files from webhook")
 
             # Filter for MP4 video files only
             mp4_files = [
