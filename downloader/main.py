@@ -197,6 +197,34 @@ class ZoomClient:
         print("✅ Successfully obtained Zoom access token")
         return self.access_token
 
+    def get_meeting_recordings(self, meeting_uuid: str) -> dict:
+        """
+        Fetch meeting recording details from Zoom API
+
+        Args:
+            meeting_uuid: Meeting UUID from webhook
+
+        Returns:
+            Recording data with download URLs that work with OAuth Bearer token
+        """
+        if not self.access_token:
+            self.get_access_token()
+
+        print(f"📋 Fetching recording details from API for meeting: {meeting_uuid}")
+
+        # URL encode the meeting UUID (double-encode for special characters)
+        import urllib.parse
+        encoded_uuid = urllib.parse.quote(urllib.parse.quote(meeting_uuid, safe=''), safe='')
+
+        url = f"{self.base_url}/meetings/{encoded_uuid}/recordings"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        print("✅ Retrieved recording details from API")
+        return response.json()
+
     def download_recording(self, download_url: str, output_path: str) -> str:
         """
         Download recording file from Zoom to local path
@@ -338,17 +366,25 @@ class ZoomRecordingProcessor:
 
             meeting_uuid = recording_object.get('uuid')
             meeting_topic = recording_object.get('topic', 'Untitled Meeting')
-            recording_files = recording_object.get('recording_files', [])
 
             print(f"🎥 Processing recording: {meeting_topic}")
             print(f"📋 Meeting UUID: {meeting_uuid}")
-            print(f"📁 Found {len(recording_files)} recording files")
 
             # Check if already processed
             processed_recordings = self._load_processed_recordings()
             if meeting_uuid in processed_recordings:
                 print(f"⏭️ Recording already processed, skipping")
                 return {'success': True, 'skipped': True, 'reason': 'already_processed'}
+
+            # Fetch recording details from Zoom API (this gives us OAuth-compatible download URLs)
+            # Unlike webhook download URLs which require short-lived download_token,
+            # API download URLs work with our OAuth Bearer token
+            print("🔄 Fetching recording details from Zoom API...")
+            api_recording_data = self.zoom_client.get_meeting_recordings(meeting_uuid)
+
+            # Extract recording files from API response
+            recording_files = api_recording_data.get('recording_files', [])
+            print(f"📁 Found {len(recording_files)} recording files from API")
 
             # Filter for MP4 video files only
             mp4_files = [
