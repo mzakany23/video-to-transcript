@@ -23,12 +23,14 @@ Serverless audio/video transcription pipeline using OpenAI Whisper API. Upload f
 - [Troubleshooting](#troubleshooting)
 
 ## Features
+- **AI-Powered Topic Summarization**: Automatic topic identification with timestamps, key points, and action items
+- **Enhanced Timestamps**: Human-readable `HH:MM:SS` format throughout all outputs
 - **Webhook-based Processing**: Automatic transcription when files are uploaded
 - **Large File Support**: Handles files of ANY size with automatic chunking (splits files >20MB)
 - **Smart Compression**: Targets 19MB for optimal API compatibility
 - **Multiple Formats**: Audio (mp3, wav, m4a) and video (mp4, mov, avi, webm)
 - **Serverless Architecture**: Scales automatically with Google Cloud Run
-- **Structured Output**: Both JSON (with timestamps) and plain text formats
+- **Structured Output**: JSON (with topic analysis), summary documents, and plain text
 - **Email Notifications**: Job start, completion, and failure alerts (multiple recipients)
 - **Error Tracking**: Optional Sentry integration for production monitoring
 
@@ -114,8 +116,10 @@ Dropbox/
 ## Output Files
 
 For each input file `meeting.mp4`, you get:
-- `meeting.json` - Full transcript data with timestamps and metadata
-- `meeting.txt` - Clean text transcript
+- `meeting_SUMMARY.txt` - **NEW!** Executive summary with topics, timestamps, key points, and action items
+- `meeting_SUMMARY.md` - **NEW!** Markdown version with formatting
+- `meeting.json` - Full transcript data with timestamps, segments, and topic analysis
+- `meeting.txt` - Clean text transcript with human-readable timestamps (`HH:MM:SS`)
 
 ## Supported File Formats
 
@@ -338,10 +342,16 @@ gcloud run jobs execute transcription-worker --region us-east1 --project jos-tra
 ### Environment Variables
 
 **Worker Job**:
-- `ENABLE_EMAIL_NOTIFICATIONS`: Enable email alerts (true/false)
+- `OPENAI_SUMMARIZATION_MODEL`: AI model for topic summarization (default: `gpt-4o-mini`)
+  - Options: `gpt-4o-mini` (recommended, ~$0.01-0.03 per 30-min transcript)
+  - Options: `gpt-4o` (higher quality, ~$0.05-0.15 per 30-min transcript)
+  - Options: `gpt-4-turbo` (legacy, ~$0.10-0.30 per 30-min transcript)
+- `ENABLE_TOPIC_SUMMARIZATION`: Enable AI-powered topic analysis (default: `true`)
+  - Set to `false` to disable topic summarization and save on API costs
+- `ENABLE_EMAIL_NOTIFICATIONS`: Enable email alerts (default: `false`)
 - `NOTIFICATION_EMAIL`: Comma-separated list of email recipients
 - `GMAIL_SECRET_NAME`: Gmail credentials secret name
-- `MAX_FILES`: Max files per job run
+- `MAX_FILES`: Max files per job run (default: `10`)
 - `SENTRY_DSN`: Sentry error tracking DSN (optional)
 - `SENTRY_ENVIRONMENT`: Environment name for Sentry (optional)
 
