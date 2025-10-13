@@ -139,6 +139,7 @@ jobs:
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
           TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
           TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          TF_VAR_openai_summarization_model: ${{ secrets.OPENAI_SUMMARIZATION_MODEL }}
           TF_VAR_dropbox_refresh_token: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
           TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
           TF_VAR_dropbox_raw_folder: ${{ secrets.DROPBOX_RAW_FOLDER }}
@@ -168,6 +169,7 @@ jobs:
           TF_VAR_gmail_address: ${{ secrets.GMAIL_ADDRESS }}
           TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
           TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          TF_VAR_openai_summarization_model: ${{ secrets.OPENAI_SUMMARIZATION_MODEL }}
           TF_VAR_dropbox_refresh_token: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
           TF_VAR_dropbox_app_key: ${{ secrets.DROPBOX_APP_KEY }}
           TF_VAR_dropbox_raw_folder: ${{ secrets.DROPBOX_RAW_FOLDER }}

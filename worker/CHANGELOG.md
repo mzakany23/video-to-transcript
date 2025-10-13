@@ -5,6 +5,17 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 2025-10-13
+
+### Changed
+- **Upgraded to GPT-5-mini for transcript summarization**
+  - Switched from gpt-4o-mini to gpt-5-mini for much better quality
+  - Provides detailed, nuanced summaries with excellent timestamp precision
+  - Better context understanding and quote extraction
+  - 400k token context window for holistic transcript analysis
+  - Configurable via `OPENAI_SUMMARIZATION_MODEL` environment variable
+  - Cost: ~$0.25-0.75 per hour of transcript (still very reasonable)
+
 ## [1.3.3] - 2025-10-13
 
 ### Fixed

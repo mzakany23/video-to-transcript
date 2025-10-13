@@ -63,9 +63,11 @@ class TopicAnalyzer:
 
             # Call OpenAI API
             print(f"🤖 Calling {self.model} for topic analysis...")
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
+
+            # Build API call parameters
+            api_params = {
+                "model": self.model,
+                "messages": [
                     {
                         "role": "system",
                         "content": "You are an expert at analyzing transcripts and identifying logical topic boundaries. You provide structured, accurate summaries with timestamps."
@@ -75,9 +77,15 @@ class TopicAnalyzer:
                         "content": prompt
                     }
                 ],
-                temperature=0.3,  # Lower temperature for more consistent analysis
-                response_format={"type": "json_object"}
-            )
+                "response_format": {"type": "json_object"}
+            }
+
+            # GPT-5 models only support default temperature (1.0)
+            # Other models support custom temperature
+            if not self.model.startswith("gpt-5"):
+                api_params["temperature"] = 0.3  # Lower temperature for more consistent analysis
+
+            response = self.client.chat.completions.create(**api_params)
 
             # Parse the response
             result_text = response.choices[0].message.content

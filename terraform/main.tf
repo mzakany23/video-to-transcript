@@ -69,6 +69,12 @@ variable "openai_api_key" {
   sensitive   = true
 }
 
+variable "openai_summarization_model" {
+  description = "OpenAI model for transcript summarization (e.g., gpt-5-mini, gpt-4o-mini)"
+  type        = string
+  default     = "gpt-4o-mini"
+}
+
 variable "dropbox_refresh_token" {
   description = "Dropbox OAuth refresh token"
   type        = string
@@ -480,6 +486,11 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
         env {
           name  = "USER_EMAILS"
           value = join(",", var.user_emails)
+        }
+
+        env {
+          name  = "OPENAI_SUMMARIZATION_MODEL"
+          value = var.openai_summarization_model
         }
 
         env {
