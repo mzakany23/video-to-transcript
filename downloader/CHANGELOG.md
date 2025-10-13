@@ -5,6 +5,14 @@ All notable changes to the downloader service will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2025-10-13
+
+### Fixed
+- Always double-encode meeting UUIDs for API calls per Zoom requirements
+- Use GET /meetings/{uuid}/recordings API (O1 direct lookup) to get OAuth-compatible download URLs
+- Webhook download URLs contain embedded tokens that expire - must fetch OAuth URLs from API
+- Tested locally and verified working with proper scopes
+
 ## [1.0.7] - 2025-10-13
 
 ### Fixed

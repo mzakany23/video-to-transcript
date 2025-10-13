@@ -250,15 +250,11 @@ class ZoomClient:
         print(f"📋 Fetching recording details from API for meeting: {meeting_uuid}")
 
         # URL encode the meeting UUID
-        # Zoom requires double-encoding ONLY for UUIDs with '/' or '//' in them
-        # For UUIDs ending in '==', single encoding is sufficient
+        # Zoom requires double-encoding for ALL UUIDs to be safe
+        # See: https://devforum.zoom.us/t/double-encode-meeting-uuids/23729
         import urllib.parse
-        if '/' in meeting_uuid:
-            # Double-encode for meeting IDs with forward slashes
-            encoded_uuid = urllib.parse.quote(urllib.parse.quote(meeting_uuid, safe=''), safe='')
-        else:
-            # Single encode for standard base64 UUIDs (with = padding)
-            encoded_uuid = urllib.parse.quote(meeting_uuid, safe='')
+        encoded_uuid = urllib.parse.quote(urllib.parse.quote(meeting_uuid, safe=''), safe='')
+        print(f"   Encoded UUID: {encoded_uuid[:60]}...")
 
         url = f"{self.base_url}/meetings/{encoded_uuid}/recordings"
         headers = {"Authorization": f"Bearer {self.access_token}"}
@@ -420,10 +416,20 @@ class ZoomRecordingProcessor:
                 print(f"⏭️ Recording already processed, skipping")
                 return {'success': True, 'skipped': True, 'reason': 'already_processed'}
 
-            # Use recording files from webhook payload
-            # The webhook provides download URLs directly
-            recording_files = recording_object.get('recording_files', [])
-            print(f"📁 Found {len(recording_files)} recording files from webhook")
+            # Webhook download URLs contain embedded download_token and don't work with OAuth
+            # Use get_meeting_recordings API to get OAuth-compatible download URLs
+            # This is O(1) direct lookup using the meeting UUID
+            print("🔄 Fetching OAuth-compatible download URLs from API...")
+            try:
+                api_recording_data = self.zoom_client.get_meeting_recordings(meeting_uuid)
+                recording_files = api_recording_data.get('recording_files', [])
+                print(f"✅ Found recording with {len(recording_files)} files from API")
+            except Exception as e:
+                print(f"❌ Failed to fetch from API: {e}")
+                # Try to extract more details from the error
+                if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                    print(f"   Response: {e.response.text[:200]}")
+                return {'success': False, 'error': f'API fetch failed: {str(e)}'}
 
             # Filter for MP4 video files only
             mp4_files = [
