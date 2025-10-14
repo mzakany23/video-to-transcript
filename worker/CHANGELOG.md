@@ -5,6 +5,32 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.6] - 2025-10-13
+
+### Changed
+- **CRITICAL: Enhanced prompt with hallucination prevention and deeper analysis**
+  - Added explicit hallucination guardrails to prevent invented names, quotes, or facts
+  - Increased transcript sample from 12k to 20k characters for better context
+  - Stricter topic granularity: 1 topic per 5-7 minutes (12-18 topics for 73-min content)
+  - Demand 5-8 key insights per topic (not just 2-3)
+  - Require specific techniques, methods, and step-by-step processes
+  - More substantive quotes (2-6 per topic, must be meaningful)
+  - Explicit instructions to NEVER invent information not in transcript
+
+### Fixed
+- Hallucinations (e.g., making up speaker names like "Lena")
+- Too few topics for long content (was 6 for 73 min, now will be 12-18)
+- Shallow insights that don't teach anything actionable
+- Missing specific techniques and frameworks
+
+### Technical
+- Increased full_text limit from 12,000 to 20,000 characters in prompt
+- Added topic count formulas: <15min=5-8, 15-45min=8-12, 45-75min=12-18, >75min=15-20+
+- Added dedicated hallucination prevention section with explicit constraints
+- Updated insight requirements to capture techniques, principles, and transformations
+
+**Recommended**: Update GitHub secret `OPENAI_SUMMARIZATION_MODEL=gpt-5` for maximum quality
+
 ## [1.3.5] - 2025-10-13
 
 ### Changed

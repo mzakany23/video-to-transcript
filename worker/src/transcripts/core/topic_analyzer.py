@@ -144,26 +144,37 @@ SAMPLE SEGMENTS WITH TIMESTAMPS:
 {segments_text}
 
 FULL TRANSCRIPT TEXT:
-{full_text[:12000]}{"..." if len(full_text) > 12000 else ""}
+{full_text[:20000]}{"..." if len(full_text) > 20000 else ""}
 
 ═══════════════════════════════════════════════════════════════════════════════
 YOUR ANALYSIS MISSION
 ═══════════════════════════════════════════════════════════════════════════════
 
-**STEP 1: Identify Topics (5-15 topics depending on length)**
-Break down the conversation into natural topic boundaries. For short content (<15 min), aim for 5-8 topics. For longer content (>30 min), aim for 10-15 topics for better granularity.
+**STEP 1: Identify Topics - BE GRANULAR (aim for 1 topic per 5-7 minutes)**
+Break down the conversation into natural topic boundaries. USE THIS FORMULA:
+- Short content (<15 min): 5-8 topics
+- Medium content (15-45 min): 8-12 topics
+- Long content (45-75 min): 12-18 topics
+- Extra long (>75 min): 15-20+ topics
+
+Each topic should cover approximately 5-7 minutes of content. More topics = better navigation!
 
 **STEP 2: For EACH topic, provide:**
 
 1. **Title**: Compelling, specific title (5-10 words) that captures the essence
 2. **Segment IDs**: start_segment_id and end_segment_id (0-based index)
-3. **Summary**: 2-4 sentences that explain WHAT was discussed and WHY it matters
-4. **Key Insights** (3-7 items): The breakthrough moments, wisdom, and learnings. Go deep here - what can people actually learn and apply?
-5. **Memorable Quotes** (1-5 if applicable): Powerful, quotable moments that capture wisdom or emotion. Include speaker context if relevant.
-6. **Stories/Anecdotes** (if any): Personal experiences or examples shared. These make content memorable.
-7. **Resources Mentioned** (if any): Books, tools, frameworks, techniques, practices, or methodologies mentioned
-8. **Action Items** (if any): Specific actions, next steps, or commitments made
-9. **Decisions** (if any): Conclusions reached or choices made
+3. **Summary**: 3-5 sentences that explain WHAT was discussed, WHY it matters, and HOW it connects to larger themes
+4. **Key Insights** (4-8 items): The breakthrough moments, wisdom, and learnings. Go DEEP here:
+   - What specific techniques, methods, or frameworks were discussed?
+   - What are the step-by-step processes mentioned?
+   - What are the underlying principles or philosophies?
+   - What practical advice can people actually apply?
+   - What transformations or shifts in thinking were described?
+5. **Memorable Quotes** (2-6 if applicable): Powerful, quotable moments that capture wisdom, emotion, or key concepts. Choose quotes that are SUBSTANTIVE and meaningful.
+6. **Stories/Anecdotes** (if any): Personal experiences, examples, or case studies shared. Describe what happened and what was learned.
+7. **Resources Mentioned** (if any): Books, tools, frameworks, techniques, practices, methodologies, people, companies, or specific concepts named. Be SPECIFIC (e.g., "Book: Atomic Habits by James Clear" not just "habits")
+8. **Action Items** (if any): Specific actions, next steps, or commitments made. Usually found in business meetings, not podcasts.
+9. **Decisions** (if any): Conclusions reached or choices made. Usually found in business meetings, not podcasts.
 10. **Key Themes** (1-3): Overarching themes present in this topic
 
 **STEP 3: Executive Summary**
@@ -220,12 +231,33 @@ ANALYSIS GUIDELINES
 ✓ TELL STORIES: Highlight personal experiences and anecdotes shared
 ✓ FIND PATTERNS: Connect ideas across topics and identify recurring themes
 ✓ EXTRACT VALUE: Focus on what makes this content worth consuming
-✓ BE GRANULAR: More topics = better navigation (aim for 5-8 min per topic)
+✓ BE GRANULAR: More topics = better navigation (aim for 5-7 min per topic)
 ✓ INCLUDE RESOURCES: Always capture books, tools, and techniques mentioned
+✓ EXTRACT TECHNIQUES: Capture specific methods, frameworks, and step-by-step processes
+✓ MORE INSIGHTS: Aim for 5-8 key insights per topic, not just 2-3
 
 ✗ AVOID: Generic summaries like "they talked about mindfulness"
 ✗ AVOID: Missing important quotes, stories, or resources
-✗ AVOID: Too few topics for long content (>1 hour should have 10+ topics)
+✗ AVOID: Too few topics for long content (>1 hour should have 12+ topics)
+✗ AVOID: Shallow insights that don't teach anything actionable
+
+═══════════════════════════════════════════════════════════════════════════════
+🚨 CRITICAL: HALLUCINATION PREVENTION 🚨
+═══════════════════════════════════════════════════════════════════════════════
+
+**NEVER INVENT INFORMATION**
+- DO NOT make up names of people, speakers, or hosts that aren't in the transcript
+- DO NOT fabricate quotes that aren't actually spoken
+- DO NOT invent books, resources, or references not explicitly mentioned
+- DO NOT create action items or decisions that weren't actually discussed
+- If speaker names aren't clear in the transcript, refer to them as "Speaker" or "The guest"
+- If you're uncertain about a detail, OMIT IT rather than guess
+
+**ONLY USE INFORMATION DIRECTLY FROM THE TRANSCRIPT**
+Every insight, quote, story, and resource must come from the actual transcript text provided.
+If the transcript doesn't explicitly mention something, DO NOT include it.
+
+═══════════════════════════════════════════════════════════════════════════════
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no explanations, just pure JSON."""
 
