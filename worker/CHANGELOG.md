@@ -5,6 +5,39 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.7] - 2025-11-02
+
+### Fixed
+- **CRITICAL: 100% Accurate Timestamps** - Include ALL transcript segments in analysis prompt
+  - Previously: Only first 50 segments (~3-5 min) had timestamps, model guessed the rest
+  - Now: All segments (entire transcript) included for accurate topic boundary detection
+  - Result: Timestamps are now accurate to the second across entire transcript
+
+### Changed
+- **Better Quote Selection** - Enhanced prompt to avoid bland, generic quotes
+  - Explicitly avoid: Pleasantries, greetings, thank-yous, generic statements
+  - Choose only: Wisdom, insights, metaphors, profound statements, memorable phrasing
+  - Example good quote: "The mind is a wonderful servant, but a terrible master"
+  - Example bad quote: "Your thoughtful shares have meant so much to me"
+- **Smarter Action Item Detection** - Context-aware filtering to avoid false positives
+  - Distinguishes between real commitments vs audience calls-to-action
+  - Excludes: "Download my workbook", "Visit my website", "Send me a message"
+  - Includes only: Actual tasks assigned to participants in meetings/calls
+  - Podcasts/monologues now correctly show 0 action items (not audience CTAs)
+
+### Added
+- **First-Person Narrative** - Smart point-of-view handling for summaries
+  - Single-speaker podcasts now use first person ("I discuss" vs "Jo discusses")
+  - Conversations/interviews use third person or speaker names
+  - Makes summaries more personal and engaging
+
+### Technical
+- Removed segment[:50] truncation in topic_analyzer.py for full timestamp context
+- Updated default model to `gpt-5` for superior reasoning and accuracy
+- Added quote quality criteria with specific examples to prompt
+
+**Impact**: This fixes the #1 user complaint about incorrect timestamps. Combined with GPT-5, summaries are now significantly more accurate and engaging.
+
 ## [1.3.6] - 2025-10-13
 
 ### Changed

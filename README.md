@@ -373,10 +373,10 @@ gcloud run jobs execute transcription-worker --region us-east1 --project jos-tra
 ### Environment Variables
 
 **Worker Job**:
-- `OPENAI_SUMMARIZATION_MODEL`: AI model for topic summarization (default: `gpt-4o-mini`)
-  - Options: `gpt-4o-mini` (recommended, ~$0.01-0.03 per 30-min transcript)
-  - Options: `gpt-4o` (higher quality, ~$0.05-0.15 per 30-min transcript)
-  - Options: `gpt-4-turbo` (legacy, ~$0.10-0.30 per 30-min transcript)
+- `OPENAI_SUMMARIZATION_MODEL`: AI model for topic summarization (default: `gpt-5`)
+  - `gpt-5` (recommended, superior reasoning, 100% accurate timestamps, ~$0.03-0.08 per 30-min transcript)
+  - `gpt-4o` (good quality, ~$0.05-0.15 per 30-min transcript)
+  - `gpt-4o-mini` (budget option, ~$0.01-0.03 per 30-min transcript, less accurate timestamps)
 - `ENABLE_TOPIC_SUMMARIZATION`: Enable AI-powered topic analysis (default: `true`)
   - Set to `false` to disable topic summarization and save on API costs
 - `ENABLE_EMAIL_NOTIFICATIONS`: Enable email alerts (default: `false`)

@@ -91,13 +91,12 @@ You analyze all types of content: business meetings, podcasts, coaching calls, i
                         "content": prompt
                     }
                 ],
-                "response_format": {"type": "json_object"}
+                "response_format": {"type": "json_object"},
             }
 
-            # GPT-5 models only support default temperature (1.0)
-            # Other models support custom temperature
+            # GPT-5 only supports temperature=1.0 (default), so only set for other models
             if not self.model.startswith("gpt-5"):
-                api_params["temperature"] = 0.3  # Lower temperature for more consistent analysis
+                api_params["temperature"] = 0.3
 
             response = self.client.chat.completions.create(**api_params)
 
@@ -119,17 +118,14 @@ You analyze all types of content: business meetings, podcasts, coaching calls, i
     def _build_analysis_prompt(self, full_text: str, segments: List[Dict], duration: float) -> str:
         """Build the prompt for GPT analysis"""
 
-        # Include segment timestamps for reference
+        # Include ALL segments with timestamps for accurate topic boundary detection
         segment_info = []
-        for i, seg in enumerate(segments[:50]):  # Limit to first 50 for context
+        for i, seg in enumerate(segments):
             start = seg.get('start', 0)
             text = seg.get('text', '').strip()
             segment_info.append(f"[{format_timestamp(start)}] {text}")
 
         segments_text = "\n".join(segment_info)
-        if len(segments) > 50:
-            segments_text += f"\n... ({len(segments) - 50} more segments)"
-
         duration_formatted = format_timestamp(duration)
 
         prompt = f"""Analyze this transcript deeply to extract maximum value, insights, and wisdom.
@@ -170,11 +166,29 @@ Each topic should cover approximately 5-7 minutes of content. More topics = bett
    - What are the underlying principles or philosophies?
    - What practical advice can people actually apply?
    - What transformations or shifts in thinking were described?
-5. **Memorable Quotes** (2-6 if applicable): Powerful, quotable moments that capture wisdom, emotion, or key concepts. Choose quotes that are SUBSTANTIVE and meaningful.
+5. **Memorable Quotes** (2-6 if applicable): SELECT ONLY TRULY QUOTABLE MOMENTS
+   - AVOID: Pleasantries, greetings, thank-yous, generic statements
+   - AVOID: "Your shares have meant so much", "I'm so glad you're here", "Thanks for listening"
+   - CHOOSE: Wisdom, insights, metaphors, profound statements, memorable phrasing
+   - CHOOSE: Quotes that teach something, inspire action, or shift perspective
+   - CHOOSE: Specific, concrete advice that someone would want to remember or share
+   - Example GOOD: "The mind is a wonderful servant, but a terrible master"
+   - Example BAD: "Your thoughtful shares and messages have meant so much to me"
 6. **Stories/Anecdotes** (if any): Personal experiences, examples, or case studies shared. Describe what happened and what was learned.
 7. **Resources Mentioned** (if any): Books, tools, frameworks, techniques, practices, methodologies, people, companies, or specific concepts named. Be SPECIFIC (e.g., "Book: Atomic Habits by James Clear" not just "habits")
-8. **Action Items** (if any): Specific actions, next steps, or commitments made. Usually found in business meetings, not podcasts.
-9. **Decisions** (if any): Conclusions reached or choices made. Usually found in business meetings, not podcasts.
+8. **Action Items** (ONLY for meetings/calls - RARE in podcasts/monologues):
+   - Include ONLY when speaker/participants commit to specific next steps or tasks
+   - Include ONLY actual decisions or tasks assigned to specific people
+   - EXCLUDE: Resources offered to audience ("Download my workbook", "Visit my website")
+   - EXCLUDE: Suggestions for listeners ("Send me a message", "Check out my Instagram")
+   - EXCLUDE: Calls-to-action for the audience ("Subscribe", "Leave a review")
+   - If content_type is "podcast"/"interview"/"monologue", action items are VERY RARE
+   - If content_type is "meeting"/"coaching call", action items are COMMON
+   - Example REAL action item: "I'll send the proposal by Friday"
+   - Example FALSE positive: "Download the free Wellbeing Wheel workbook"
+9. **Decisions** (ONLY for meetings/calls - RARE in podcasts):
+   - Include ONLY conclusions reached or choices made by participants
+   - EXCLUDE: General statements or recommendations to the audience
 10. **Key Themes** (1-3): Overarching themes present in this topic
 
 **STEP 3: Executive Summary**
@@ -182,6 +196,12 @@ Write a compelling 3-5 sentence executive summary that captures:
 - The main narrative arc or purpose of the conversation
 - The most important insights or takeaways
 - Who would benefit from this content and why
+
+**IMPORTANT - Point of View:**
+- If this is a single-speaker podcast/monologue, use FIRST PERSON ("I", "my", "we")
+- If this is a conversation/interview, use THIRD PERSON or speaker names
+- Example: NOT "Jo discusses her experience" → INSTEAD "I discuss my experience"
+- Example: NOT "The host explains" → INSTEAD "I explain"
 
 **STEP 4: Overall Analysis**
 Provide:

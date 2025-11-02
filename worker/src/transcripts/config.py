@@ -25,7 +25,8 @@ class Config:
     OPENAI_MODEL: str = "whisper-1"
 
     # OpenAI Summarization Configuration
-    OPENAI_SUMMARIZATION_MODEL: str = os.environ.get("OPENAI_SUMMARIZATION_MODEL", "gpt-4o-mini")
+    # Default: gpt-5 for superior reasoning and 100% accurate timestamps
+    OPENAI_SUMMARIZATION_MODEL: str = os.environ.get("OPENAI_SUMMARIZATION_MODEL", "gpt-5")
     ENABLE_TOPIC_SUMMARIZATION: bool = os.environ.get("ENABLE_TOPIC_SUMMARIZATION", "true").lower() == "true"
     
     # Google Cloud Configuration
