@@ -104,7 +104,7 @@ You analyze all types of content: business meetings, podcasts, coaching calls, i
             result_text = response.choices[0].message.content
             analysis = json.loads(result_text)
 
-            print(f"✅ Analysis complete: {len(analysis.get('topics', []))} topics identified")
+            print(f"✅ Analysis complete: {len(analysis.get('quotes', []))} quotes, {len(analysis.get('reel_snippets_standalone', []))} standalone snippets")
 
             # Validate and format the analysis
             formatted_analysis = self._format_analysis(analysis, segments, duration, language)
@@ -116,98 +116,63 @@ You analyze all types of content: business meetings, podcasts, coaching calls, i
             return self._empty_analysis(error=str(e))
 
     def _build_analysis_prompt(self, full_text: str, segments: List[Dict], duration: float) -> str:
-        """Build the prompt for GPT analysis"""
+        """Build the prompt for GPT analysis - Instagram-focused"""
 
-        # Include ALL segments with timestamps for accurate topic boundary detection
-        segment_info = []
-        for i, seg in enumerate(segments):
-            start = seg.get('start', 0)
-            text = seg.get('text', '').strip()
-            segment_info.append(f"[{format_timestamp(start)}] {text}")
-
-        segments_text = "\n".join(segment_info)
         duration_formatted = format_timestamp(duration)
 
-        prompt = f"""Analyze this transcript deeply to extract maximum value, insights, and wisdom.
+        prompt = f"""Analyze this transcript to extract content optimized for Instagram.
+
+The goal is to provide a clean summary and copy-pastable content for Instagram carousel reels.
 
 ═══════════════════════════════════════════════════════════════════════════════
-TRANSCRIPT DETAILS
+TRANSCRIPT
 ═══════════════════════════════════════════════════════════════════════════════
 Duration: {duration_formatted}
-Total segments: {len(segments)}
 
-SAMPLE SEGMENTS WITH TIMESTAMPS:
-{segments_text}
-
-FULL TRANSCRIPT TEXT:
-{full_text[:20000]}{"..." if len(full_text) > 20000 else ""}
+{full_text}
 
 ═══════════════════════════════════════════════════════════════════════════════
-YOUR ANALYSIS MISSION
+YOUR MISSION - INSTAGRAM-FIRST CONTENT
 ═══════════════════════════════════════════════════════════════════════════════
 
-**STEP 1: Identify Topics - BE GRANULAR (aim for 1 topic per 5-7 minutes)**
-Break down the conversation into natural topic boundaries. USE THIS FORMULA:
-- Short content (<15 min): 5-8 topics
-- Medium content (15-45 min): 8-12 topics
-- Long content (45-75 min): 12-18 topics
-- Extra long (>75 min): 15-20+ topics
+Extract 3 key deliverables optimized for Instagram:
 
-Each topic should cover approximately 5-7 minutes of content. More topics = better navigation!
+**1. SUMMARY (one full paragraph)**
+- Write a compelling paragraph that captures the interesting concepts discussed
+- Focus on WHAT was discussed, not WHO said it
+- NO mention of narrative perspective (no "first person", "third person", etc.)
+- Just explain the interesting ideas, insights, and topics covered
+- Make it engaging and informative
+- 4-6 sentences
 
-**STEP 2: For EACH topic, provide:**
+**2. QUOTES (maximum 5 - quality over quantity)**
+- Select ONLY the most quotable, shareable, and impactful moments
+- These should be statements people would want to remember or share
+- AVOID: Pleasantries, greetings, thank-yous, generic statements
+- AVOID: "Your shares have meant so much", "Thanks for listening"
+- CHOOSE: Wisdom, insights, metaphors, profound statements
+- CHOOSE: Actionable advice, perspective shifts, memorable phrasing
+- Example GOOD: "The mind is a wonderful servant, but a terrible master"
+- Example BAD: "Your thoughtful messages have meant so much to me"
+- If there aren't 5 truly great quotes, provide fewer (quality > quantity)
 
-1. **Title**: Compelling, specific title (5-10 words) that captures the essence
-2. **Segment IDs**: start_segment_id and end_segment_id (0-based index)
-3. **Summary**: 3-5 sentences that explain WHAT was discussed, WHY it matters, and HOW it connects to larger themes
-4. **Key Insights** (4-8 items): The breakthrough moments, wisdom, and learnings. Go DEEP here:
-   - What specific techniques, methods, or frameworks were discussed?
-   - What are the step-by-step processes mentioned?
-   - What are the underlying principles or philosophies?
-   - What practical advice can people actually apply?
-   - What transformations or shifts in thinking were described?
-5. **Memorable Quotes** (2-6 if applicable): SELECT ONLY TRULY QUOTABLE MOMENTS
-   - AVOID: Pleasantries, greetings, thank-yous, generic statements
-   - AVOID: "Your shares have meant so much", "I'm so glad you're here", "Thanks for listening"
-   - CHOOSE: Wisdom, insights, metaphors, profound statements, memorable phrasing
-   - CHOOSE: Quotes that teach something, inspire action, or shift perspective
-   - CHOOSE: Specific, concrete advice that someone would want to remember or share
-   - Example GOOD: "The mind is a wonderful servant, but a terrible master"
-   - Example BAD: "Your thoughtful shares and messages have meant so much to me"
-6. **Stories/Anecdotes** (if any): Personal experiences, examples, or case studies shared. Describe what happened and what was learned.
-7. **Resources Mentioned** (if any): Books, tools, frameworks, techniques, practices, methodologies, people, companies, or specific concepts named. Be SPECIFIC (e.g., "Book: Atomic Habits by James Clear" not just "habits")
-8. **Action Items** (ONLY for meetings/calls - RARE in podcasts/monologues):
-   - Include ONLY when speaker/participants commit to specific next steps or tasks
-   - Include ONLY actual decisions or tasks assigned to specific people
-   - EXCLUDE: Resources offered to audience ("Download my workbook", "Visit my website")
-   - EXCLUDE: Suggestions for listeners ("Send me a message", "Check out my Instagram")
-   - EXCLUDE: Calls-to-action for the audience ("Subscribe", "Leave a review")
-   - If content_type is "podcast"/"interview"/"monologue", action items are VERY RARE
-   - If content_type is "meeting"/"coaching call", action items are COMMON
-   - Example REAL action item: "I'll send the proposal by Friday"
-   - Example FALSE positive: "Download the free Wellbeing Wheel workbook"
-9. **Decisions** (ONLY for meetings/calls - RARE in podcasts):
-   - Include ONLY conclusions reached or choices made by participants
-   - EXCLUDE: General statements or recommendations to the audience
-10. **Key Themes** (1-3): Overarching themes present in this topic
+**3. INSTAGRAM REEL SNIPPETS (provide BOTH formats below)**
 
-**STEP 3: Executive Summary**
-Write a compelling 3-5 sentence executive summary that captures:
-- The main narrative arc or purpose of the conversation
-- The most important insights or takeaways
-- Who would benefit from this content and why
+Format A: Standalone Insights (5-8 snippets)
+- Short, punchy insights (1-2 sentences each)
+- Can be used as individual carousel panels
+- Direct, impactful statements
+- Each should stand alone
+- Example: "Start your day with 5 minutes of silence before checking your phone"
+- Example: "Decision fatigue is real - make important choices in the morning"
 
-**IMPORTANT - Point of View:**
-- If this is a single-speaker podcast/monologue, use FIRST PERSON ("I", "my", "we")
-- If this is a conversation/interview, use THIRD PERSON or speaker names
-- Example: NOT "Jo discusses her experience" → INSTEAD "I discuss my experience"
-- Example: NOT "The host explains" → INSTEAD "I explain"
-
-**STEP 4: Overall Analysis**
-Provide:
-- **Main Themes** (3-7): The big-picture themes across the entire conversation
-- **Content Type** (infer this): Is this a podcast, business meeting, coaching call, interview, workshop, brainstorm, etc.?
-- **Key Takeaways** (5-10): The most valuable lessons, insights, or wisdom someone should remember
+Format B: Mini-Posts with Context (3-5 snippets)
+- Longer snippets with context (2-4 sentences each)
+- Provide background and application
+- More narrative and explanatory
+- Each is a complete thought with setup and payoff
+- Example: "Why morning routines matter: Most successful people protect the first hour of their day. Instead of reacting to emails, they invest in themselves first."
+- Example: "The power of constraints: Limitations force creativity. When you have all the time in the world, you procrastinate. When you have 2 hours, you find a way."
 
 ═══════════════════════════════════════════════════════════════════════════════
 JSON STRUCTURE
@@ -216,65 +181,62 @@ JSON STRUCTURE
 Return your analysis as ONLY valid JSON (no other text) with this structure:
 
 {{
-  "executive_summary": "3-5 sentence compelling overview",
-  "content_type": "podcast/meeting/coaching/interview/workshop/etc",
-  "topics": [
-    {{
-      "id": 1,
-      "title": "Compelling specific title here",
-      "start_segment_id": 0,
-      "end_segment_id": 10,
-      "summary": "2-4 sentences explaining what AND why it matters",
-      "key_insights": ["Deep insight 1", "Wisdom point 2", "Practical learning 3"],
-      "key_quotes": ["Memorable quote 1", "Powerful quote 2"],
-      "stories": ["Brief description of story/anecdote if shared"],
-      "resources": ["Book: The Power of Now by Eckhart Tolle", "Technique: Box breathing"],
-      "action_items": ["Specific action if mentioned"],
-      "decisions": ["Decision if made"],
-      "themes": ["Theme 1", "Theme 2"]
-    }}
+  "summary": "One full paragraph describing the interesting concepts discussed...",
+  "quotes": [
+    "Powerful quote 1",
+    "Memorable quote 2",
+    "Insight quote 3",
+    "Wisdom quote 4",
+    "Actionable quote 5"
+  ],
+  "reel_snippets_standalone": [
+    "Short punchy insight 1",
+    "Direct statement 2",
+    "Memorable insight 3",
+    "Actionable tip 4",
+    "Perspective shift 5"
+  ],
+  "reel_snippets_context": [
+    "Mini-post with context 1...",
+    "Narrative snippet 2...",
+    "Explanatory insight 3..."
   ],
   "metadata": {{
-    "total_topics": 12,
-    "main_themes": ["Theme 1", "Theme 2", "Theme 3"],
-    "key_takeaways": ["Takeaway 1", "Takeaway 2", "Takeaway 3"]
+    "content_type": "podcast/meeting/coaching/interview/workshop/etc"
   }}
 }}
 
 ═══════════════════════════════════════════════════════════════════════════════
-ANALYSIS GUIDELINES
+GUIDELINES
 ═══════════════════════════════════════════════════════════════════════════════
 
-✓ GO DEEP: Extract real insights, not just "they discussed X"
-✓ BE SPECIFIC: Use actual examples, numbers, and details from the transcript
-✓ CAPTURE WISDOM: Find the profound moments and breakthrough insights
-✓ TELL STORIES: Highlight personal experiences and anecdotes shared
-✓ FIND PATTERNS: Connect ideas across topics and identify recurring themes
-✓ EXTRACT VALUE: Focus on what makes this content worth consuming
-✓ BE GRANULAR: More topics = better navigation (aim for 5-7 min per topic)
-✓ INCLUDE RESOURCES: Always capture books, tools, and techniques mentioned
-✓ EXTRACT TECHNIQUES: Capture specific methods, frameworks, and step-by-step processes
-✓ MORE INSIGHTS: Aim for 5-8 key insights per topic, not just 2-3
+✓ FOCUS ON VALUE: What makes this content worth sharing on Instagram?
+✓ BE SPECIFIC: Use actual concepts and details from the transcript
+✓ MAKE IT SHAREABLE: Every element should be Instagram-ready
+✓ QUALITY OVER QUANTITY: 3 great quotes beat 5 mediocre ones
+✓ NO EMOJIS: Keep all text clean and emoji-free
+✓ COPY-PASTABLE: All snippets should be ready to use as-is
+✓ ACTIONABLE: Prioritize insights people can actually apply
+✓ ENGAGING: Make people want to read and share
 
-✗ AVOID: Generic summaries like "they talked about mindfulness"
-✗ AVOID: Missing important quotes, stories, or resources
-✗ AVOID: Too few topics for long content (>1 hour should have 12+ topics)
-✗ AVOID: Shallow insights that don't teach anything actionable
+✗ AVOID: Generic platitudes that could apply to any content
+✗ AVOID: Quotes that aren't actually inspiring or useful
+✗ AVOID: Overly long or complex snippets
+✗ AVOID: Mentioning timestamps, speakers by name (unless critical to the insight)
+✗ AVOID: Emojis in any section
 
 ═══════════════════════════════════════════════════════════════════════════════
-🚨 CRITICAL: HALLUCINATION PREVENTION 🚨
+CRITICAL: HALLUCINATION PREVENTION
 ═══════════════════════════════════════════════════════════════════════════════
 
 **NEVER INVENT INFORMATION**
-- DO NOT make up names of people, speakers, or hosts that aren't in the transcript
 - DO NOT fabricate quotes that aren't actually spoken
-- DO NOT invent books, resources, or references not explicitly mentioned
-- DO NOT create action items or decisions that weren't actually discussed
-- If speaker names aren't clear in the transcript, refer to them as "Speaker" or "The guest"
+- DO NOT invent concepts, frameworks, or ideas not explicitly mentioned
+- Every quote, insight, and snippet must come from the actual transcript
 - If you're uncertain about a detail, OMIT IT rather than guess
+- If there aren't enough great quotes, provide fewer
 
 **ONLY USE INFORMATION DIRECTLY FROM THE TRANSCRIPT**
-Every insight, quote, story, and resource must come from the actual transcript text provided.
 If the transcript doesn't explicitly mention something, DO NOT include it.
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -285,56 +247,18 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations, just pure JSON.
 
     def _format_analysis(self, analysis: Dict, segments: List[Dict],
                         duration: float, language: str) -> Dict[str, Any]:
-        """Format and validate the analysis results"""
-
-        topics = analysis.get('topics', [])
-        formatted_topics = []
-
-        for topic in topics:
-            start_seg_id = topic.get('start_segment_id', 0)
-            end_seg_id = topic.get('end_segment_id', len(segments) - 1)
-
-            # Ensure segment IDs are valid
-            start_seg_id = max(0, min(start_seg_id, len(segments) - 1))
-            end_seg_id = max(start_seg_id, min(end_seg_id, len(segments) - 1))
-
-            # Get actual timestamps from segments
-            start_time = segments[start_seg_id].get('start', 0) if start_seg_id < len(segments) else 0
-            end_time = segments[end_seg_id].get('end', duration) if end_seg_id < len(segments) else duration
-
-            formatted_topic = {
-                'id': topic.get('id', len(formatted_topics) + 1),
-                'title': topic.get('title', f'Topic {len(formatted_topics) + 1}'),
-                'start_time': start_time,
-                'end_time': end_time,
-                'start_time_formatted': format_timestamp(start_time),
-                'end_time_formatted': format_timestamp(end_time),
-                'timestamp_range': format_timestamp_range(start_time, end_time),
-                'start_segment_id': start_seg_id,
-                'end_segment_id': end_seg_id,
-                'summary': topic.get('summary', ''),
-                'key_points': topic.get('key_points', topic.get('key_insights', [])),  # Support both old and new field names
-                'key_quotes': topic.get('key_quotes', []),
-                'stories': topic.get('stories', []),
-                'resources': topic.get('resources', []),
-                'action_items': topic.get('action_items', []),
-                'decisions': topic.get('decisions', []),
-                'themes': topic.get('themes', [])
-            }
-
-            formatted_topics.append(formatted_topic)
+        """Format and validate the analysis results - Instagram-focused"""
 
         return {
-            'executive_summary': analysis.get('executive_summary', ''),
-            'content_type': analysis.get('content_type', 'conversation'),
-            'topics': formatted_topics,
+            'summary': analysis.get('summary', ''),
+            'quotes': analysis.get('quotes', []),
+            'reel_snippets_standalone': analysis.get('reel_snippets_standalone', []),
+            'reel_snippets_context': analysis.get('reel_snippets_context', []),
+            'content_type': analysis.get('metadata', {}).get('content_type', 'conversation'),
             'metadata': {
-                'total_topics': len(formatted_topics),
                 'duration': duration,
                 'duration_formatted': format_timestamp(duration),
                 'language': language,
-                'main_themes': analysis.get('metadata', {}).get('main_themes', []),
-                'key_takeaways': analysis.get('metadata', {}).get('key_takeaways', []),
                 'model_used': self.model,
                 'analyzed_at': datetime.now().isoformat()
             }
@@ -343,10 +267,12 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations, just pure JSON.
     def _empty_analysis(self, error: str = None) -> Dict[str, Any]:
         """Return empty analysis structure"""
         return {
-            'executive_summary': '',
-            'topics': [],
+            'summary': '',
+            'quotes': [],
+            'reel_snippets_standalone': [],
+            'reel_snippets_context': [],
+            'content_type': 'unknown',
             'metadata': {
-                'total_topics': 0,
                 'error': error
             }
         }

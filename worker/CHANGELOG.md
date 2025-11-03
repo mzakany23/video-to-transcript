@@ -5,6 +5,37 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-11-02
+
+### Changed
+- **MAJOR: Instagram-First Summary Redesign** - Complete overhaul based on critical user feedback
+  - Goal: Optimize for Instagram carousel reels, not comprehensive analysis
+  - Removed: Timestamps (didn't line up, not useful for Instagram)
+  - Removed: Detailed topic breakdown (overkill for 20-min podcasts)
+  - Removed: Action items (not used)
+  - Simplified output to 3 key sections:
+    1. Summary (one compelling paragraph, no POV mentions)
+    2. Quotes (max 5, quality over quantity, Instagram-ready)
+    3. Reel Snippets (both standalone and context formats)
+- **Reel Snippets - Two Formats**:
+  - Standalone Insights: Short punchy 1-2 sentence insights for carousel panels
+  - Mini-Posts with Context: 2-4 sentence snippets with background and application
+- **Cleaner Email Format** - Simplified HTML template to match new structure
+  - No timestamps, no ordered lists, no complexity
+  - Copy-pastable content ready for social media
+  - Focus on actionable Instagram content
+
+### Technical
+- Completely rewrote analysis prompt in topic_analyzer.py for Instagram focus
+- Updated _format_analysis to return new JSON structure
+- Updated HTMLEmailTemplate.generate_summary_email for new sections
+- Updated generate_plain_text_summary for Instagram content
+- Modified generate_summary_email.py script to work with new format
+
+**Impact**: Reduces time to create Instagram content from transcripts. Provides exactly what users need: quotable moments and copy-pastable reel snippets. No more wading through timestamps and detailed breakdowns.
+
+**Breaking Change**: Email format completely changed. Old analysis JSON structure is incompatible with new version.
+
 ## [1.3.7] - 2025-11-02
 
 ### Fixed

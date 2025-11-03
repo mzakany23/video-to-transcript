@@ -145,18 +145,15 @@ Examples:
         sys.exit(1)
 
     print(f"\n✅ Analysis complete!")
-    print(f"   - Topics identified: {len(topic_analysis.get('topics', []))}")
+    print(f"   - Quotes identified: {len(topic_analysis.get('quotes', []))}")
+    print(f"   - Standalone snippets: {len(topic_analysis.get('reel_snippets_standalone', []))}")
+    print(f"   - Context snippets: {len(topic_analysis.get('reel_snippets_context', []))}")
     print(f"   - Model used: {topic_analysis.get('metadata', {}).get('model_used', 'unknown')}")
 
-    # Print first few timestamps for quick validation
-    print(f"\n📊 First 5 topic timestamps:")
-    for topic in topic_analysis.get('topics', [])[:5]:
-        timestamp_range = topic.get('timestamp_range', '')
-        title = topic.get('title', '')
-        start_time = topic.get('start_time', 0)
-        end_time = topic.get('end_time', 0)
-        print(f"   {timestamp_range} - {title}")
-        print(f"      (actual: {start_time:.1f}s - {end_time:.1f}s)")
+    # Print first few quotes for quick validation
+    print(f"\n📊 First 3 quotes:")
+    for i, quote in enumerate(topic_analysis.get('quotes', [])[:3], 1):
+        print(f"   {i}. \"{quote}\"")
 
     # Generate HTML email using production code
     print(f"\n📧 Generating email HTML using production template...")
@@ -193,21 +190,18 @@ Examples:
 
     print(f"✅ Analysis JSON saved to: {analysis_output}")
 
-    print(f"\n💡 Validate timestamps:")
-    print(f"   python scripts/validate_timestamps.py {args.input_json} {analysis_output}")
-
     print(f"\n💡 Open in browser to review:")
     print(f"   open {args.output}")
 
     # Summary stats
-    topics = topic_analysis.get('topics', [])
-    total_actions = sum(len(t.get('action_items', [])) for t in topics)
-    total_decisions = sum(len(t.get('decisions', [])) for t in topics)
+    quotes = topic_analysis.get('quotes', [])
+    standalone = topic_analysis.get('reel_snippets_standalone', [])
+    context = topic_analysis.get('reel_snippets_context', [])
 
     print(f"\n📈 Summary stats:")
-    print(f"   Topics: {len(topics)}")
-    print(f"   Action Items: {total_actions}")
-    print(f"   Decisions: {total_decisions}")
+    print(f"   Quotes: {len(quotes)}")
+    print(f"   Standalone Snippets: {len(standalone)}")
+    print(f"   Context Snippets: {len(context)}")
 
 
 if __name__ == "__main__":
