@@ -5,6 +5,38 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2025-11-13
+
+### Added
+- **Multi-Provider LLM Support via LiteLLM** - Support for OpenAI, Anthropic Claude, and 100+ other providers
+  - Unified API for all providers (OpenAI, Anthropic, Cohere, Mistral, etc.)
+  - Easy model switching via `OPENAI_SUMMARIZATION_MODEL` env var
+  - New `ANTHROPIC_API_KEY` configuration for Claude models
+  - Intelligent JSON extraction for different provider response formats
+  - Auto-detection of provider based on model name
+
+### Changed
+- Replaced direct OpenAI SDK calls with LiteLLM for chat completions
+- Moved `generate_summary_email.py` from root to `worker/scripts/` (uses worker venv)
+- Enhanced documentation with multi-provider examples and model selection guide
+
+### Fixed
+- **CRITICAL: Invalid Model Name** - Fixed production issue where code used non-existent `gpt-5` model
+  - Symptom: Summaries not generating, no email notifications
+  - Root cause: OpenAI API calls failing silently with invalid model name
+  - Resolution: LiteLLM integration + proper model validation + switched to claude-sonnet-4-5
+
+### Technical
+- New dependency: `litellm>=1.0.0` (added to pyproject.toml and requirements.txt)
+- Added `_extract_json()` method to handle different response formats (OpenAI JSON mode vs Claude)
+- Updated config.py with ANTHROPIC_API_KEY support
+- Backward compatible: existing OpenAI configuration continues to work
+- Handles provider-specific differences (temperature settings, JSON mode, etc.)
+
+**Impact**: Production summaries will now generate correctly. Enables testing different LLM providers for quality and cost optimization. Claude Sonnet 4.5 provides excellent analysis quality at competitive pricing.
+
+**Breaking Change**: None - fully backward compatible with existing OpenAI setup.
+
 ## [1.4.0] - 2025-11-02
 
 ### Changed

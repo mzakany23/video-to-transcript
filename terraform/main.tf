@@ -69,8 +69,15 @@ variable "openai_api_key" {
   sensitive   = true
 }
 
+variable "anthropic_api_key" {
+  description = "Anthropic API key for Claude models (optional, only needed if using Claude for summarization)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "openai_summarization_model" {
-  description = "OpenAI model for transcript summarization (e.g., gpt-5-mini, gpt-4o-mini)"
+  description = "Model for transcript summarization (e.g., claude-sonnet-4-5, gpt-4o, gpt-4o-mini)"
   type        = string
   default     = "gpt-4o-mini"
 }
@@ -203,6 +210,25 @@ resource "google_secret_manager_secret" "openai_key" {
 resource "google_secret_manager_secret_version" "openai_key" {
   secret      = google_secret_manager_secret.openai_key.id
   secret_data = var.openai_api_key
+}
+
+# Store Anthropic API key in Secret Manager (optional)
+resource "google_secret_manager_secret" "anthropic_key" {
+  count     = var.anthropic_api_key != "" ? 1 : 0
+  project   = var.project_id
+  secret_id = "anthropic-api-key"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "anthropic_key" {
+  count       = var.anthropic_api_key != "" ? 1 : 0
+  secret      = google_secret_manager_secret.anthropic_key[0].id
+  secret_data = var.anthropic_api_key
 }
 
 # Store Gmail credentials in Secret Manager
@@ -491,6 +517,19 @@ resource "google_cloud_run_v2_job" "transcription_processor" {
         env {
           name  = "OPENAI_SUMMARIZATION_MODEL"
           value = var.openai_summarization_model
+        }
+
+        dynamic "env" {
+          for_each = var.anthropic_api_key != "" ? [1] : []
+          content {
+            name = "ANTHROPIC_API_KEY"
+            value_source {
+              secret_key_ref {
+                secret  = google_secret_manager_secret.anthropic_key[0].secret_id
+                version = "latest"
+              }
+            }
+          }
         }
 
         env {
