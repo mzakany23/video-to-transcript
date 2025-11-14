@@ -24,10 +24,16 @@ class Config:
     OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = "whisper-1"
 
-    # OpenAI Summarization Configuration
-    # Default: gpt-5 for superior reasoning and 100% accurate timestamps
+    # LLM Provider Configuration (for summarization)
+    # Supports any model via LiteLLM:
+    # - OpenAI: "gpt-5", "gpt-4o", "gpt-4o-mini" (default: gpt-5)
+    # - Anthropic: "claude-3-5-sonnet-20241022", "claude-3-opus-20240229"
+    # - And 100+ other providers
     OPENAI_SUMMARIZATION_MODEL: str = os.environ.get("OPENAI_SUMMARIZATION_MODEL", "gpt-5")
     ENABLE_TOPIC_SUMMARIZATION: bool = os.environ.get("ENABLE_TOPIC_SUMMARIZATION", "true").lower() == "true"
+
+    # Anthropic Configuration (optional, only needed for Claude models)
+    ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
     
     # Google Cloud Configuration
     PROJECT_ID: str = os.environ.get("PROJECT_ID", "")

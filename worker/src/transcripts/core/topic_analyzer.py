@@ -1,16 +1,18 @@
 """
-Topic analyzer for transcripts using OpenAI GPT models
+Topic analyzer for transcripts using LLM models via LiteLLM
+Supports OpenAI, Anthropic, and 100+ other providers
 Identifies topic boundaries, key points, and generates structured summaries
 """
 
 import json
+import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 try:
-    from openai import OpenAI
+    import litellm
 except ImportError:
-    raise ImportError("OpenAI SDK not installed. Run: uv add openai")
+    raise ImportError("LiteLLM not installed. Run: pip install litellm")
 
 from ..config import Config
 from ..utils.timestamp_formatter import format_timestamp, format_timestamp_range
@@ -21,19 +23,29 @@ class TopicAnalyzer:
 
     def __init__(self, api_key: str = None, model: str = None):
         """
-        Initialize topic analyzer
+        Initialize topic analyzer with LiteLLM support
 
         Args:
-            api_key: OpenAI API key (defaults to Config.OPENAI_API_KEY)
+            api_key: API key for the provider (defaults to Config.OPENAI_API_KEY)
+                    For Anthropic models, set Config.ANTHROPIC_API_KEY instead
             model: Model to use for analysis (defaults to Config.OPENAI_SUMMARIZATION_MODEL)
+                  Examples: "gpt-5", "gpt-4o", "claude-3-5-sonnet-20241022"
         """
-        self.api_key = api_key or Config.OPENAI_API_KEY
         self.model = model or Config.OPENAI_SUMMARIZATION_MODEL
 
-        if not self.api_key:
-            raise ValueError("OpenAI API key is required for topic analysis")
+        # Set up environment variables for LiteLLM to use
+        # LiteLLM automatically detects the provider based on model name
+        if Config.OPENAI_API_KEY:
+            os.environ["OPENAI_API_KEY"] = Config.OPENAI_API_KEY
+        if Config.ANTHROPIC_API_KEY:
+            os.environ["ANTHROPIC_API_KEY"] = Config.ANTHROPIC_API_KEY
 
-        self.client = OpenAI(api_key=self.api_key)
+        # Validate we have the appropriate API key for the model
+        if self.model.startswith("claude-") and not Config.ANTHROPIC_API_KEY:
+            raise ValueError("Anthropic API key is required for Claude models. Set ANTHROPIC_API_KEY env var.")
+        elif self.model.startswith("gpt-") and not Config.OPENAI_API_KEY:
+            raise ValueError("OpenAI API key is required for GPT models. Set OPENAI_API_KEY env var.")
+
         print(f"✅ Topic analyzer initialized with model: {self.model}")
 
     def analyze_transcript(self, transcript_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -61,7 +73,7 @@ class TopicAnalyzer:
             # Build the analysis prompt
             prompt = self._build_analysis_prompt(full_text, segments, duration)
 
-            # Call OpenAI API
+            # Call LLM API via LiteLLM
             print(f"🤖 Calling {self.model} for topic analysis...")
 
             # Build API call parameters
@@ -91,18 +103,29 @@ You analyze all types of content: business meetings, podcasts, coaching calls, i
                         "content": prompt
                     }
                 ],
-                "response_format": {"type": "json_object"},
             }
+
+            # Set response format for JSON mode (different handling for different providers)
+            if self.model.startswith("gpt-"):
+                # OpenAI uses response_format
+                api_params["response_format"] = {"type": "json_object"}
+            # Claude models handle JSON via prompt instructions (already in prompt)
 
             # GPT-5 only supports temperature=1.0 (default), so only set for other models
             if not self.model.startswith("gpt-5"):
                 api_params["temperature"] = 0.3
 
-            response = self.client.chat.completions.create(**api_params)
+            response = litellm.completion(**api_params)
 
             # Parse the response
             result_text = response.choices[0].message.content
-            analysis = json.loads(result_text)
+
+            # Debug: show first 200 chars of response
+            snippet = result_text[:200] if result_text else "(empty response)"
+            print(f"📝 Response preview: {snippet}...")
+
+            # Extract JSON from response (handles Claude's potential wrapping)
+            analysis = self._extract_json(result_text)
 
             print(f"✅ Analysis complete: {len(analysis.get('quotes', []))} quotes, {len(analysis.get('reel_snippets_standalone', []))} standalone snippets")
 
@@ -114,6 +137,48 @@ You analyze all types of content: business meetings, podcasts, coaching calls, i
         except Exception as e:
             print(f"❌ Error analyzing transcript: {str(e)}")
             return self._empty_analysis(error=str(e))
+
+    def _extract_json(self, text: str) -> Dict[str, Any]:
+        """
+        Extract JSON from LLM response, handling various formats
+
+        Handles:
+        - Pure JSON responses
+        - JSON wrapped in markdown code blocks (```json ... ```)
+        - Text before/after JSON
+        """
+        import re
+
+        # First try: direct JSON parse (for OpenAI with response_format)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Second try: extract from markdown code block
+        json_block_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+        matches = re.findall(json_block_pattern, text, re.DOTALL)
+        if matches:
+            try:
+                return json.loads(matches[0])
+            except json.JSONDecodeError:
+                pass
+
+        # Third try: find JSON object in text (look for outermost {...})
+        json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+        matches = re.findall(json_pattern, text, re.DOTALL)
+        for match in matches:
+            try:
+                parsed = json.loads(match)
+                # Verify it has expected structure
+                if isinstance(parsed, dict) and ('summary' in parsed or 'quotes' in parsed):
+                    return parsed
+            except json.JSONDecodeError:
+                continue
+
+        # If all fails, raise error with snippet of response for debugging
+        snippet = text[:200] + "..." if len(text) > 200 else text
+        raise ValueError(f"Could not extract valid JSON from response. Response starts with: {snippet}")
 
     def _build_analysis_prompt(self, full_text: str, segments: List[Dict], duration: float) -> str:
         """Build the prompt for GPT analysis - Instagram-focused"""

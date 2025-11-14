@@ -61,7 +61,8 @@ python -m pytest tests/ --cov=src/transcripts --cov-report=term-missing
 
 ## Features
 
-- **AI Topic Summarization**: Automatic topic detection with GPT-4o-mini
+- **Multi-Provider LLM Support**: Use OpenAI, Anthropic Claude, or 100+ models via LiteLLM
+- **AI Topic Summarization**: Automatic topic detection with configurable models (default: GPT-5)
 - **Audio Chunking**: Handles files of ANY size (splits files >20MB)
 - **Smart Compression**: Targets 19MB for optimal API compatibility
 - **Enhanced Timestamps**: Human-readable `HH:MM:SS` format
@@ -81,8 +82,9 @@ For each input file `interview.mp4`, generates:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key (required) | - |
-| `OPENAI_SUMMARIZATION_MODEL` | Model for topic analysis | `gpt-4o-mini` |
+| `OPENAI_API_KEY` | OpenAI API key (required for Whisper + GPT models) | - |
+| `OPENAI_SUMMARIZATION_MODEL` | Model for analysis (e.g., `gpt-5`, `gpt-4o`, `claude-3-5-sonnet-20241022`) | `gpt-5` |
+| `ANTHROPIC_API_KEY` | Anthropic API key (required only for Claude models) | - |
 | `ENABLE_TOPIC_SUMMARIZATION` | Enable AI topic analysis | `true` |
 | `DROPBOX_ACCESS_TOKEN` | Dropbox access token | - |
 | `DROPBOX_RAW_FOLDER` | Folder to watch for new files | `/transcripts/raw` |
@@ -94,6 +96,103 @@ For each input file `interview.mp4`, generates:
 | `MAX_FILES` | Max files to process per run | `10` |
 | `SENTRY_DSN` | Sentry error tracking DSN | - |
 | `SENTRY_ENVIRONMENT` | Sentry environment name | - |
+
+## LLM Model Selection
+
+The worker uses [LiteLLM](https://github.com/BerriAI/litellm) for multi-provider LLM support. You can easily switch between different models and providers.
+
+### Using OpenAI Models (Default)
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_SUMMARIZATION_MODEL="gpt-5"  # default
+```
+
+**Available OpenAI models:**
+- `gpt-5` (default) - Superior reasoning, 100% accurate timestamps
+- `gpt-4o` - Fast and capable
+- `gpt-4o-mini` - Cost-effective
+
+### Using Anthropic Claude Models
+
+```bash
+export OPENAI_API_KEY="sk-..."  # Still needed for Whisper transcription
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_SUMMARIZATION_MODEL="claude-3-5-sonnet-20241022"
+```
+
+**Available Claude models:**
+- `claude-3-5-sonnet-20241022` - Latest, excellent for analysis
+- `claude-3-opus-20240229` - Most intelligent (slower/expensive)
+- `claude-3-sonnet-20240229` - Balanced performance
+- `claude-3-haiku-20240307` - Fast and cost-effective
+
+### Using Other Providers
+
+LiteLLM supports 100+ providers. See [docs](https://docs.litellm.ai/docs/providers) for full list.
+
+**Examples:**
+```bash
+# Cohere
+export COHERE_API_KEY="..."
+export OPENAI_SUMMARIZATION_MODEL="command-r-plus"
+
+# Mistral
+export MISTRAL_API_KEY="..."
+export OPENAI_SUMMARIZATION_MODEL="mistral-large-latest"
+```
+
+### Testing Different Models
+
+Compare models before committing to production:
+
+```bash
+cd worker  # Run from worker directory
+
+# Test with GPT-5 (default)
+uv run python scripts/generate_summary_email.py \
+  ../conversation/features/better-summaries/data/episode-4.json \
+  -o test-output/gpt5.html
+
+# Test with Claude 3.5 Sonnet
+export ANTHROPIC_API_KEY="sk-ant-..."
+uv run python scripts/generate_summary_email.py \
+  ../conversation/features/better-summaries/data/episode-4.json \
+  -o test-output/claude-sonnet.html \
+  -m claude-3-5-sonnet-20241022
+
+# Test with GPT-4o
+uv run python scripts/generate_summary_email.py \
+  ../conversation/features/better-summaries/data/episode-4.json \
+  -o test-output/gpt4o.html \
+  -m gpt-4o
+
+# Compare multiple models at once
+for model in gpt-5 gpt-4o claude-3-5-sonnet-20241022; do
+  uv run python scripts/generate_summary_email.py input.json \
+    -o test-output/${model}.html -m $model
+done
+
+# Open all results for comparison
+open test-output/*.html
+```
+
+### Model Selection Tips
+
+**Use GPT-5 when:**
+- You need superior reasoning and deep analysis
+- You want 100% accurate timestamps
+- Quality is more important than cost
+
+**Use Claude 3.5 Sonnet when:**
+- You want excellent analysis with different perspective
+- You need strong reasoning at competitive pricing
+- You want to compare outputs between providers
+
+**Use GPT-4o-mini or Claude Haiku when:**
+- You need fast, cost-effective processing
+- Content is straightforward
+- Processing high volumes
 
 ## Project Structure
 
@@ -141,8 +240,11 @@ worker/
 - $0.006 per minute of audio
 - Example: 30-minute file = ~$0.18
 
-**Topic Summarization** (GPT-4o-mini):
-- ~$0.01-0.03 per 30-minute transcript
+**Topic Summarization** (varies by model):
+- GPT-5: ~$0.05-0.15 per 30-minute transcript (higher quality)
+- GPT-4o: ~$0.03-0.08 per 30-minute transcript
+- GPT-4o-mini: ~$0.01-0.03 per 30-minute transcript (most cost-effective)
+- Claude 3.5 Sonnet: ~$0.04-0.10 per 30-minute transcript
 - Can be disabled via `ENABLE_TOPIC_SUMMARIZATION=false`
 
 ## Deployment

@@ -80,6 +80,7 @@ test_*.py
 # Coverage reports
 .coverage
 htmlcov/
+worker/test-output/
 *.cover
 .hypothesis/
 .pytest_cache/

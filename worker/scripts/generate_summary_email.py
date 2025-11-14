@@ -6,32 +6,44 @@ This script generates the exact same email summary HTML that users receive in pr
 It uses the production code from worker/src/transcripts/core/ with no duplication.
 
 Purpose:
-    - Test different AI models (GPT-5, GPT-4o, etc.) for summary quality
+    - Test different AI models (OpenAI, Anthropic, etc.) for summary quality
     - Validate timestamp accuracy before deploying changes
     - Compare summaries side-by-side in candidates/ folder
     - Preview what users will receive
 
 Requirements:
-    - OpenAI API key (set OPENAI_API_KEY env var or use --api-key)
+    - API key(s) for your chosen provider(s):
+      - OpenAI: OPENAI_API_KEY (for GPT models)
+      - Anthropic: ANTHROPIC_API_KEY (for Claude models)
     - Transcript JSON file (must have 'text', 'segments', 'duration' fields)
-    - Python packages: openai (from worker requirements)
+    - Python packages: litellm, openai (from worker requirements)
 
-Usage Examples (run from project root):
+Supported Models (via LiteLLM):
+    - OpenAI: gpt-5, gpt-4o, gpt-4o-mini
+    - Anthropic: claude-3-5-sonnet-20241022, claude-3-opus-20240229, claude-3-haiku-20240307
+    - 100+ other providers (see https://docs.litellm.ai/docs/providers)
 
-    # Basic usage with GPT-5
-    python scripts/generate_summary_email.py conversation/features/better-summaries/data/episode-4.json -o conversation/features/better-summaries/candidates/gpt5.html -m gpt-5
+Usage Examples (run from worker directory):
+
+    # Basic usage with GPT-5 (default)
+    cd worker
+    uv run python scripts/generate_summary_email.py ../conversation/features/better-summaries/data/episode-4.json -o test-output/gpt5.html
+
+    # Test with Claude 3.5 Sonnet
+    export ANTHROPIC_API_KEY="sk-ant-..."
+    uv run python scripts/generate_summary_email.py ../conversation/features/better-summaries/data/episode-4.json -o test-output/claude-sonnet.html -m claude-3-5-sonnet-20241022
 
     # Compare multiple models
-    for model in gpt-5 gpt-4o gpt-4o-mini; do
-        python scripts/generate_summary_email.py conversation/features/better-summaries/data/episode-4.json -o conversation/features/better-summaries/candidates/$model.html -m $model
+    for model in gpt-5 gpt-4o claude-3-5-sonnet-20241022; do
+        uv run python scripts/generate_summary_email.py input.json -o test-output/$model.html -m $model
     done
 
     # Use environment variable for model
     export OPENAI_SUMMARIZATION_MODEL=gpt-5
-    python scripts/generate_summary_email.py conversation/features/better-summaries/data/episode-4.json -o conversation/features/better-summaries/candidates/default.html
+    uv run python scripts/generate_summary_email.py input.json -o test-output/default.html
 
     # View in browser after generation
-    python scripts/generate_summary_email.py input.json -o output.html -m gpt-5
+    uv run python scripts/generate_summary_email.py input.json -o output.html -m gpt-5
     open output.html
 
 Output:
@@ -51,7 +63,7 @@ import argparse
 from pathlib import Path
 
 # Add worker source to path to import production code
-worker_src = Path(__file__).parent.parent / "worker" / "src"
+worker_src = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(worker_src))
 
 from transcripts.core.topic_analyzer import TopicAnalyzer
@@ -63,17 +75,17 @@ def main():
         description='Generate email summary HTML from transcript JSON',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
+Examples (run from worker directory with uv):
   # Generate with default model
-  %(prog)s input.json -o output.html
+  uv run python %(prog)s input.json -o output.html
 
   # Generate with specific model
-  %(prog)s input.json -o candidates/gpt5.html -m gpt-5-mini
+  uv run python %(prog)s input.json -o test-output/gpt5.html -m gpt-5
 
-  # Use episode-4 example
-  %(prog)s conversation/features/better-summaries/data/episode-4.json \\
-    -o conversation/features/better-summaries/candidates/gpt5.html \\
-    -m gpt-5-mini
+  # Use episode-4 example with Claude
+  uv run python %(prog)s ../conversation/features/better-summaries/data/episode-4.json \\
+    -o test-output/claude.html \\
+    -m claude-3-5-sonnet-20241022
         """
     )
 
@@ -93,13 +105,13 @@ Examples:
     parser.add_argument(
         '-m', '--model',
         type=str,
-        help='OpenAI model to use (default: from OPENAI_SUMMARIZATION_MODEL env var or config default)'
+        help='Model to use: gpt-5, gpt-4o, claude-3-5-sonnet-20241022, etc. (default: from OPENAI_SUMMARIZATION_MODEL env var or config default)'
     )
 
     parser.add_argument(
         '--api-key',
         type=str,
-        help='OpenAI API key (default: from OPENAI_API_KEY env var)'
+        help='OpenAI API key (default: from OPENAI_API_KEY env var). For Claude models, set ANTHROPIC_API_KEY instead.'
     )
 
     args = parser.parse_args()
