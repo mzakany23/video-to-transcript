@@ -62,6 +62,15 @@ jobs:
             echo "⏭️  Webhook $WEBHOOK_TAG already deployed"
           fi
 
+          # Check worker
+          WORKER_TAG="worker-${{ steps.version.outputs.WORKER_VERSION }}"
+          if ! git rev-parse "$WORKER_TAG" >/dev/null 2>&1; then
+            echo "✅ New worker version $WORKER_TAG - will deploy"
+            NEEDS_DEPLOY=true
+          else
+            echo "⏭️  Worker $WORKER_TAG already deployed"
+          fi
+
           # Check downloader (skip if version is Unreleased)
           DOWNLOADER_RAW=$(grep -m1 '^## \[' downloader/CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
           if [ "$DOWNLOADER_RAW" != "Unreleased" ]; then
