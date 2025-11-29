@@ -243,7 +243,8 @@ class DropboxHandler:
             print(f"✅ Uploaded JSON: {json_filename}")
 
             # Upload SUMMARY file if topic analysis is available
-            if topic_analysis and topic_analysis.get('topics'):
+            # Check for 'summary' (new Instagram-focused format) or 'topics' (legacy format)
+            if topic_analysis and (topic_analysis.get('summary') or topic_analysis.get('topics')):
                 summary_filename = f"{base_name}_SUMMARY.txt"
                 summary_content = SummaryFormatter.format_summary_text(
                     transcript_data, topic_analysis, original_file_name

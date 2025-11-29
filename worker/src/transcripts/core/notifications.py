@@ -468,8 +468,10 @@ This is an automated notification from your transcription pipeline.
         if not self.enabled:
             return False
 
-        # Only send summary emails if we have topic analysis
-        if not topic_analysis or not topic_analysis.get('topics'):
+        # Only send summary emails if we have topic analysis with content
+        # Check for 'summary' (new Instagram-focused format) or 'topics' (legacy format)
+        has_content = topic_analysis and (topic_analysis.get('summary') or topic_analysis.get('topics'))
+        if not has_content:
             print("ℹ️ No topic analysis available, skipping summary email")
             return False
 

@@ -5,6 +5,14 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2025-11-29
+
+### Fixed
+- **CRITICAL: Summary emails not sending** - Fixed bug where notification code checked for non-existent `topics` field
+  - Root cause: Topic analyzer was redesigned for Instagram-focused format (returns `summary`, `quotes`, `reel_snippets`)
+  - But notification and dropbox upload code still checked for old `topics` field
+  - Now checks for `summary` (new format) OR `topics` (legacy format)
+
 ## [1.4.1] - 2025-11-13
 
 ### Added
