@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-integration test-all install install-dev clean
+.PHONY: test test-unit test-integration test-all smoke install install-dev clean
 
 # Run unit tests only (fast)
 test:
@@ -11,6 +11,10 @@ test-unit:
 # Run integration tests (requires OPENAI_API_KEY and test audio files)
 test-integration:
 	python -m pytest tests/integration/ -v -m integration
+
+# Run smoke tests (fast API key validation, ~10 seconds)
+smoke:
+	python -m pytest tests/smoke/ -v -m smoke
 
 # Run all tests
 test-all:

@@ -71,8 +71,8 @@ webhook-function.zip
 # Webhook info (contains sensitive IDs)
 webhook_info.json
 
-# Test files
-test_*.py
+# Ad-hoc test scripts at project root
+/test_*.py
 
 # Claude Code
 .claude/

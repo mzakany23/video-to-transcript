@@ -54,7 +54,7 @@ Drop a file in Dropbox → Get back transcripts with AI-generated summaries, key
 - [License](#license)
 
 ## Features
-- **AI-Powered Topic Summarization**: Automatic topic identification with timestamps, key points, and action items
+- **Multi-Provider AI Summarization**: Topic analysis via OpenAI or Anthropic (LiteLLM routing), with automatic key validation
 - **Enhanced Timestamps**: Human-readable `HH:MM:SS` format throughout all outputs
 - **Webhook-based Processing**: Automatic transcription when files are uploaded
 - **Large File Support**: Handles files of ANY size with automatic chunking (splits files >20MB)
@@ -97,9 +97,43 @@ uv run main.py
 cd worker/
 uv sync
 uv run main.py
-
-
 ```
+
+### Testing
+
+```bash
+cd worker/
+
+# Unit tests (no external dependencies)
+make test
+
+# Smoke tests — validates API keys, GCP secrets, and production code paths (~15s)
+# Requires OPENAI_API_KEY and ANTHROPIC_API_KEY
+make smoke
+
+# Full e2e pipeline test — uploads file to Dropbox, verifies output + email (~3 min)
+# Requires Dropbox + Gmail credentials in env vars
+uv run python -m pytest tests/smoke/test_pipeline_e2e.py -v -m smoke -s
+
+# Integration tests (requires OPENAI_API_KEY + test audio files)
+make test-integration
+```
+
+**Smoke test coverage:**
+
+| Test | What it validates |
+|------|-------------------|
+| `test_openai_api_key_valid` | OpenAI key works, whisper-1 model accessible |
+| `test_anthropic_api_key_valid` | Anthropic key works via LiteLLM |
+| `test_openai_summarization_via_litellm` | GPT summarization path via LiteLLM |
+| `test_topic_analyzer_openai` | Full TopicAnalyzer with OpenAI provider |
+| `test_topic_analyzer_anthropic` | Full TopicAnalyzer with Anthropic provider |
+| `test_openai_secret_in_gcp` | GCP Secret Manager returns valid OpenAI key |
+| `test_anthropic_secret_in_gcp` | GCP Secret Manager returns valid Anthropic key |
+| `test_dropbox_processed_folder_has_recent_output` | Dropbox has output files from latest run |
+| `test_gmail_imap_login` | Gmail IMAP credentials work |
+| `test_gmail_has_recent_transcription_email` | Summary email exists in Gmail inbox |
+| `test_full_pipeline_dropbox_to_email` | Full e2e: Dropbox upload -> webhook -> worker -> Dropbox output + email |
 
 ## Versioning
 
@@ -170,10 +204,12 @@ transcripts/
 │   ├── pyproject.toml          # Full transcription dependencies
 │   ├── src/transcripts/        # Core transcription logic
 │   ├── main.py                 # Processes files
-│   └── Dockerfile              # Container image
-
-├── terraform/                   # Infrastructure as Code
-└── tests/                       # Integration tests
+│   ├── Dockerfile              # Container image
+│   └── tests/
+│       ├── unit/               # Fast unit tests
+│       ├── integration/        # Full pipeline integration tests
+│       └── smoke/              # API key + e2e pipeline validation
+└── terraform/                   # Infrastructure as Code
 ```
 
 ## Deployment
