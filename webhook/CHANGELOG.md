@@ -5,6 +5,11 @@ All notable changes to the webhook service will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-05-03
+
+### Added
+- Allowlist `.zip` so archive uploads (e.g. Zoom recording bundles) trigger the worker instead of being silently skipped. The worker handles unpacking and per-entry transcription.
+
 ## [1.2.2] - 2025-10-12
 
 ### Fixed

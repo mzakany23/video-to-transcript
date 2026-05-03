@@ -5,6 +5,14 @@ All notable changes to the transcription worker service will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-05-03
+
+### Added
+- **Zip archive support** - Worker now unpacks `.zip` uploads (e.g. Zoom recording bundles) and transcribes every supported audio/video entry inside
+  - Each entry produces its own transcript output and summary email, prefixed with the zip basename to avoid filename collisions
+  - Safety caps: max 50 entries, max 5 GB uncompressed total, skips `__MACOSX` and dotfiles
+  - Webhook also allowlists `.zip` so direct uploads trigger the worker instead of being silently skipped
+
 ## [1.4.2] - 2025-11-29
 
 ### Fixed

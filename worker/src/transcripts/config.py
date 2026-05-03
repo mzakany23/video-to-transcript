@@ -62,8 +62,14 @@ class Config:
     SUPPORTED_FORMATS = {
         '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm',
         '.aac', '.oga', '.ogg', '.flac', '.mov', '.avi', '.mkv',
-        '.wmv', '.flv', '.3gp'
+        '.wmv', '.flv', '.3gp', '.zip'
     }
+
+    AUDIO_VIDEO_FORMATS = SUPPORTED_FORMATS - {'.zip'}
+
+    # Zip archive safety caps (prevent zip bombs / runaway extractions)
+    ZIP_MAX_UNCOMPRESSED_BYTES: int = 5 * 1024 * 1024 * 1024  # 5 GB
+    ZIP_MAX_ENTRIES: int = 50
     
     @classmethod
     def validate(cls) -> bool:

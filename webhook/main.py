@@ -161,11 +161,11 @@ class WebhookProcessor:
         # Raw folder path
         self.raw_folder = os.environ.get('DROPBOX_RAW_FOLDER', '/transcripts/raw')
         
-        # Supported audio/video formats
+        # Supported audio/video formats (zip archives are unpacked by the worker)
         self.supported_formats = {
             '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm',
             '.aac', '.oga', '.ogg', '.flac', '.mov', '.avi', '.mkv',
-            '.wmv', '.flv', '.3gp'
+            '.wmv', '.flv', '.3gp', '.zip'
         }
     
     def process_webhook_notification(self, webhook_data: Dict[str, Any]) -> List[Dict[str, Any]]:

@@ -6,9 +6,11 @@ Handles audio extraction, compression, and OpenAI Whisper transcription
 
 import json
 import os
+import shutil
 import tempfile
 import re
 import sys
+import zipfile
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
@@ -20,6 +22,7 @@ import ffmpeg
 
 # Import from our src package
 sys.path.append('src')
+from transcripts.config import Config
 from transcripts.core.dropbox_handler import DropboxHandler
 from transcripts.core.notifications import EmailNotificationService
 from transcripts.core.audio_chunker import AudioChunker
@@ -349,47 +352,50 @@ class TranscriptionJobProcessor:
     
     
     def process_file(self, file_info: Dict[str, Any]) -> Dict[str, Any]:
-        """Process a single file for transcription"""
-        processing_start_time = datetime.now()
-        
+        """Process a single file for transcription. Zip archives are unpacked
+        and each supported audio/video entry is transcribed independently."""
         try:
-            file_id = file_info.get('id')
             file_name = file_info.get('name')
-            
-            print(f"🔄 Processing: {file_name}")
-            
-            # Download file from Dropbox to temporary storage
             file_path = file_info.get('path')
+
+            print(f"🔄 Processing: {file_name}")
+
             temp_file_path = self._download_from_dropbox(file_path, file_name)
-            
             if not temp_file_path:
                 return {'success': False, 'error': 'Failed to download file from Dropbox'}
-            
-            # Process audio based on file type
-            audio_file_path = self._prepare_audio_file(temp_file_path, file_name)
 
+            if temp_file_path.suffix.lower() == '.zip':
+                return self._process_zip_archive(temp_file_path, file_name)
+
+            return self._transcribe_local_file(temp_file_path, file_name)
+
+        except Exception as e:
+            print(f"❌ Error processing file {file_info.get('name', 'unknown')}: {str(e)}")
+            return {'success': False, 'error': str(e)}
+
+    def _transcribe_local_file(self, temp_file_path: Path, file_name: str) -> Dict[str, Any]:
+        """Run the audio prep → transcribe → upload → notify pipeline on an
+        already-downloaded local file. Used for both direct uploads and entries
+        extracted from a zip archive."""
+        try:
+            audio_file_path = self._prepare_audio_file(temp_file_path, file_name)
             if not audio_file_path:
                 return {'success': False, 'error': 'Failed to prepare audio file'}
 
-            # Check if file needs chunking
             if AudioChunker.should_chunk_file(audio_file_path):
                 print(f"📦 File is large, using chunked transcription")
                 transcript_result = self._transcribe_audio_chunked(audio_file_path)
             else:
-                # Transcribe using OpenAI Whisper (single file)
                 transcript_result = self._transcribe_audio(audio_file_path)
 
             if not transcript_result.get('success'):
                 return transcript_result
-            
-            # Upload results back to Dropbox
+
             upload_result = self.dropbox_handler.upload_transcript_results(
                 transcript_result['transcript_data'], file_name
             )
 
-            # Send summary email to users (if topic analysis available)
             try:
-                # Check if we have topic analysis in the upload result
                 if 'topic_analysis' in upload_result:
                     topic_analysis = upload_result['topic_analysis']
                     dropbox_links = {
@@ -397,7 +403,6 @@ class TranscriptionJobProcessor:
                         'txt_share_url': upload_result.get('txt_share_url'),
                         'json_share_url': upload_result.get('json_share_url')
                     }
-
                     self.notification_service.send_summary_email(
                         transcript_result['transcript_data'],
                         topic_analysis,
@@ -407,10 +412,8 @@ class TranscriptionJobProcessor:
                 else:
                     print("ℹ️ No topic analysis found, skipping summary email")
             except Exception as e:
-                # Don't fail the job if email fails
                 print(f"⚠️ Failed to send summary email (continuing): {str(e)}")
 
-            # Clean up temporary files
             if temp_file_path.exists():
                 temp_file_path.unlink()
             if audio_file_path != temp_file_path and audio_file_path.exists():
@@ -422,9 +425,121 @@ class TranscriptionJobProcessor:
                 'transcript_data': transcript_result['transcript_data'],
                 'upload_result': upload_result
             }
-            
+
         except Exception as e:
-            print(f"❌ Error processing file {file_info.get('name', 'unknown')}: {str(e)}")
+            print(f"❌ Error transcribing {file_name}: {str(e)}")
+            return {'success': False, 'error': str(e)}
+
+    def _process_zip_archive(self, zip_path: Path, zip_name: str) -> Dict[str, Any]:
+        """Extract a zip archive and transcribe every supported audio/video
+        entry inside. Each entry produces its own transcript output and summary
+        email. Aggregates per-entry success/failure into a single result."""
+        print(f"🗜️ Unpacking zip: {zip_name}")
+
+        try:
+            extract_dir = Path(tempfile.mkdtemp(prefix="zip_extract_"))
+            zip_stem = Path(zip_name).stem
+
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                infos = zf.infolist()
+
+                if len(infos) > Config.ZIP_MAX_ENTRIES:
+                    return {'success': False, 'error': (
+                        f'Zip contains {len(infos)} entries, exceeds cap of '
+                        f'{Config.ZIP_MAX_ENTRIES}'
+                    )}
+
+                total_uncompressed = sum(i.file_size for i in infos)
+                if total_uncompressed > Config.ZIP_MAX_UNCOMPRESSED_BYTES:
+                    return {'success': False, 'error': (
+                        f'Zip uncompressed size {total_uncompressed} bytes '
+                        f'exceeds cap of {Config.ZIP_MAX_UNCOMPRESSED_BYTES}'
+                    )}
+
+                # Filter to supported audio/video entries before extracting anything
+                candidates = []
+                for info in infos:
+                    if info.is_dir():
+                        continue
+                    entry_basename = Path(info.filename).name
+                    if not entry_basename:
+                        continue
+                    # Skip macOS metadata and hidden files
+                    if '__MACOSX' in info.filename or entry_basename.startswith('.'):
+                        continue
+                    if Path(entry_basename).suffix.lower() not in Config.AUDIO_VIDEO_FORMATS:
+                        print(f"  ⏭️ Skipping non-audio/video zip entry: {info.filename}")
+                        continue
+                    candidates.append((info, entry_basename))
+
+                if not candidates:
+                    return {'success': False, 'error': (
+                        f'Zip {zip_name} contains no supported audio/video files'
+                    )}
+
+                print(f"  📂 Found {len(candidates)} audio/video entries to transcribe")
+
+                # Build collision-safe local filenames by mirroring the zip-internal
+                # path with separators replaced (so a/x.mp3 and b/x.mp3 stay distinct).
+                used_names = set()
+                per_entry_results = []
+                for info, entry_basename in candidates:
+                    safe_rel = info.filename.replace('/', '__').replace('\\', '__')
+                    local_name = safe_rel
+                    suffix_n = 1
+                    while local_name in used_names:
+                        stem = Path(safe_rel).stem
+                        ext = Path(safe_rel).suffix
+                        local_name = f"{stem}_{suffix_n}{ext}"
+                        suffix_n += 1
+                    used_names.add(local_name)
+
+                    try:
+                        target = extract_dir / local_name
+                        with zf.open(info) as src, open(target, 'wb') as dst:
+                            while True:
+                                chunk = src.read(4 * 1024 * 1024)
+                                if not chunk:
+                                    break
+                                dst.write(chunk)
+
+                        # Namespace each output by zip basename so transcripts from
+                        # separately-uploaded zips don't collide on Dropbox
+                        labeled_name = f"{zip_stem}__{local_name}"
+                        result = self._transcribe_local_file(target, labeled_name)
+                        per_entry_results.append({
+                            'entry': info.filename,
+                            'success': bool(result.get('success')),
+                            'error': result.get('error'),
+                        })
+                    except Exception as e:
+                        print(f"  ❌ Failed on zip entry {info.filename}: {e}")
+                        per_entry_results.append({
+                            'entry': info.filename,
+                            'success': False,
+                            'error': str(e),
+                        })
+
+            failures = [r for r in per_entry_results if not r['success']]
+
+            if zip_path.exists():
+                zip_path.unlink()
+            shutil.rmtree(extract_dir, ignore_errors=True)
+
+            return {
+                'success': len(failures) < len(per_entry_results),
+                'file_name': zip_name,
+                'zip_entries': per_entry_results,
+                'error': (
+                    None if not failures
+                    else f"{len(failures)}/{len(per_entry_results)} zip entries failed"
+                ),
+            }
+
+        except zipfile.BadZipFile as e:
+            return {'success': False, 'error': f'Invalid zip archive: {e}'}
+        except Exception as e:
+            print(f"❌ Error processing zip {zip_name}: {str(e)}")
             return {'success': False, 'error': str(e)}
     
     def _download_from_dropbox(self, file_path: str, file_name: str) -> Path:
