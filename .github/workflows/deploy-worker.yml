@@ -1,10 +1,9 @@
 name: Deploy Worker
 
 on:
-  workflow_run:
-    workflows: ["Deploy Terraform"]
-    types:
-      - completed
+  push:
+    branches:
+      - main
   workflow_dispatch: # Allow manual trigger
 
 env:
@@ -16,8 +15,6 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: video-to-transcript
-    # Only run if Deploy Terraform succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     permissions:
       contents: read

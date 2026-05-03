@@ -1,9 +1,10 @@
 name: Deploy Terraform
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Deploy Worker"]
+    types:
+      - completed
   workflow_dispatch: # Allow manual trigger
 
 env:
@@ -15,8 +16,9 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     environment: video-to-transcript
-    # Only run if Deploy Worker succeeded (or if not triggered by workflow_run)
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
+    # Only run if Deploy Worker succeeded (or on manual dispatch). This ordering
+    # ensures the worker image exists in GCR before terraform tries to pin it.
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     permissions:
       contents: write      # Required to create/push git tags
